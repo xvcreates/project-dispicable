@@ -299,6 +299,29 @@ const commands = [
     .addStringOption(option => option.setName('reason').setDescription('Reason for warning').setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
+new SlashCommandBuilder()
+    .setName('removerole')
+    .setDescription('Remove a role from one user or everyone.')
+    .addRoleOption(option =>
+        option
+            .setName('role')
+            .setDescription('Role to remove')
+            .setRequired(true))
+    .addStringOption(option =>
+        option
+            .setName('target')
+            .setDescription('Who to remove the role from')
+            .setRequired(true)
+            .addChoices(
+                { name: 'User', value: 'user' },
+                { name: 'Everyone', value: 'everyone' }
+            ))
+    .addUserOption(option =>
+        option
+            .setName('user')
+            .setDescription('User to remove the role from'))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+
   new SlashCommandBuilder()
     .setName('warnings')
     .setDescription('Check the number of warnings a user has.')
@@ -1419,6 +1442,46 @@ client.on('interactionCreate', async interaction => {
           await interaction.reply({ content: 'Could not create invite. Check bot permissions.', ephemeral: true });
         }
         break;
+
+case 'removerole': {
+    const role = interaction.options.getRole('role');
+    const target = interaction.options.getString('target');
+    const user = interaction.options.getUser('user');
+
+    if (target === 'everyone') {
+        await guild.members.fetch();
+
+        let removed = 0;
+        for (const [, member] of guild.members.cache) {
+            if (member.roles.cache.has(role.id)) {
+                try {
+                    await member.roles.remove(role);
+                    removed++;
+                } catch {}
+            }
+        }
+
+        return interaction.reply({
+            content: `✅ Removed **${role.name}** from **${removed}** members.`,
+            ephemeral: true
+        });
+    }
+
+    if (!user) {
+        return interaction.reply({
+            content: '❌ You must choose a user.',
+            ephemeral: true
+        });
+    }
+
+    const member = await guild.members.fetch(user.id);
+    await member.roles.remove(role);
+
+    return interaction.reply({
+        content: `✅ Removed **${role.name}** from ${user.tag}.`,
+        ephemeral: true
+    });
+}
 
       case 'randommember':
         const members = await guild.members.fetch();
