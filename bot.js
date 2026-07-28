@@ -1028,26 +1028,40 @@ client.on('interactionCreate', async interaction => {
       }
 
       case 'bulkroleremove': {
-        const bulkRole = interaction.options.getRole('role');
-        await guild.members.fetch();
-        const membersToRemove = guild.members.cache.filter(member => member.roles.cache.has(bulkRole.id));
-        if (membersToRemove.size === 0) {
-          return interaction.reply({ content: `No members currently have the ${bulkRole.name} role.`, ephemeral: true });
-        }
+    await interaction.deferReply({ ephemeral: true });
 
-        let successCount = 0;
-        let failedCount = 0;
+    const bulkRole = interaction.options.getRole('role');
+    await guild.members.fetch();
 
-        for (const [, memberToRemove] of membersToRemove) {
-          try {
+    const membersToRemove = guild.members.cache.filter(member =>
+        member.roles.cache.has(bulkRole.id)
+    );
+
+    if (membersToRemove.size === 0) {
+        return interaction.editReply({
+            content: `No members currently have the ${bulkRole.name} role.`
+        });
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const [, memberToRemove] of membersToRemove) {
+        try {
             await memberToRemove.roles.remove(bulkRole);
             successCount++;
-          } catch (error) {
+        } catch (error) {
             failedCount++;
             console.error(`Failed to remove ${bulkRole.name} from ${memberToRemove.user.tag}:`, error);
-          }
         }
+    }
 
+    await interaction.editReply({
+        content: `✅ Removed **${bulkRole.name}** from **${successCount}** member(s).${failedCount ? ` ${failedCount} failed.` : ''}`
+    });
+
+    break;
+}
         await interaction.reply({ content: `Removed ${bulkRole.name} from ${successCount} members. ${failedCount} failures.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
