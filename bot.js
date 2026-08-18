@@ -1,16 +1,27 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const db = require('./src/services/database');
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
+const PORT = process.env.PORT || 3000;
 
 if (!TOKEN || !CLIENT_ID) {
   console.error('? Missing DISCORD_TOKEN or CLIENT_ID in .env');
   process.exit(1);
 }
+
+const app = express();
+app.get('/', (req, res) => {
+  res.status(200).send('Bot is running');
+});
+
+app.listen(PORT, () => {
+  console.log(`HTTP health server listening on port ${PORT}`);
+});
 
 const client = new Client({
   intents: [
