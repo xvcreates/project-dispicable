@@ -1,11 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Configure the bot for your server (admin only)')
-    .setDefaultMemberPermissions('0x8'), // ADMINISTRATOR
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   async execute(interaction) {
     // Check if user is admin
     if (!interaction.member.permissions.has('Administrator')) {
