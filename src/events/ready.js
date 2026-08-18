@@ -22,9 +22,9 @@ module.exports = {
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     try {
-      console.log(`Refreshing ${commands.length} application commands...`);
-      await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands });
-      console.log('Successfully registered commands.');
+      console.log(`Refreshing ${commands.length} application commands globally...`);
+      await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+      console.log('Successfully registered commands globally.');
     } catch (error) {
       console.error('Failed to register commands:', error);
     }

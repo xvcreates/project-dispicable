@@ -6,10 +6,9 @@ const db = require('./src/services/database');
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
 
-if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error('? Missing DISCORD_TOKEN, CLIENT_ID, or GUILD_ID in .env');
+if (!TOKEN || !CLIENT_ID) {
+  console.error('? Missing DISCORD_TOKEN or CLIENT_ID in .env');
   process.exit(1);
 }
 
