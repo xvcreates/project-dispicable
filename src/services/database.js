@@ -46,7 +46,10 @@ async function initialize() {
     spam_threshold INTEGER DEFAULT 5,
     spam_window_ms INTEGER DEFAULT 8000,
     max_mentions INTEGER DEFAULT 5,
-    block_invites INTEGER DEFAULT 1
+    block_invites INTEGER DEFAULT 1,
+    cmds_role_id TEXT,
+    modlog_channel_id TEXT,
+    general_log_channel_id TEXT
   )`);
 
   await run(`CREATE TABLE IF NOT EXISTS warnings (
@@ -92,7 +95,10 @@ async function getGuildSettings(guildId) {
       spamThreshold: row.spam_threshold,
       spamWindowMs: row.spam_window_ms,
       maxMentions: row.max_mentions,
-      blockInvites: Boolean(row.block_invites)
+      blockInvites: Boolean(row.block_invites),
+      cmdsRoleId: row.cmds_role_id,
+      modlogChannelId: row.modlog_channel_id,
+      generalLogChannelId: row.general_log_channel_id
     };
   }
   await run(`INSERT INTO guild_settings (guild_id) VALUES (?)`, [guildId]);
@@ -144,7 +150,17 @@ module.exports = {
   clearWarnings,
   logAction,
   get,
-  all
+  all,
+  run,
+  updateCmdsRole: async (guildId, roleId) => {
+    await run('UPDATE guild_settings SET cmds_role_id = ? WHERE guild_id = ?', [roleId, guildId]);
+  },
+  updateModlogChannel: async (guildId, channelId) => {
+    await run('UPDATE guild_settings SET modlog_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
+  },
+  updateGeneralLogChannel: async (guildId, channelId) => {
+    await run('UPDATE guild_settings SET general_log_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
+  }
 };
 
 
