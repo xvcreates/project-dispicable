@@ -1,5 +1,5 @@
 const db = require('../services/database');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   name: 'interactionCreate',
@@ -38,6 +38,78 @@ module.exports = {
           await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {
           await interaction.reply({ content: `❌ Failed to update role: ${error.message}`, ephemeral: true });
+        }
+      }
+
+      if (interaction.customId.startsWith('setup_ticket_ping_roles') || interaction.customId.startsWith('settings_ticket_ping_roles')) {
+        try {
+          await db.updateTicketPingRoles(guild.id, interaction.values);
+          const roleMentions = await Promise.all(interaction.values.map(async (roleId) => {
+            const role = await guild.roles.fetch(roleId);
+            return role ? role.toString() : roleId;
+          }));
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Ticket Ping Roles Updated').setDescription(`Ticket ping roles: ${roleMentions.join(', ') || 'None'}`).setColor(0x00ff00)],
+            ephemeral: true
+          });
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update ticket ping roles: ${error.message}`, ephemeral: true });
+        }
+      }
+
+      if (interaction.customId.startsWith('setup_ticket_view_roles') || interaction.customId.startsWith('settings_ticket_view_roles')) {
+        try {
+          await db.updateTicketViewRoles(guild.id, interaction.values);
+          const roleMentions = await Promise.all(interaction.values.map(async (roleId) => {
+            const role = await guild.roles.fetch(roleId);
+            return role ? role.toString() : roleId;
+          }));
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Ticket View Roles Updated').setDescription(`Ticket view roles: ${roleMentions.join(', ') || 'None'}`).setColor(0x00ff00)],
+            ephemeral: true
+          });
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update ticket view roles: ${error.message}`, ephemeral: true });
+        }
+      }
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId.startsWith('setup_ticket_ping_toggle') || interaction.customId.startsWith('settings_ticket_ping_toggle')) {
+        const enabled = interaction.values[0] === 'true';
+        try {
+          await db.updateTicketPingEnabled(interaction.guild.id, enabled);
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Ticket Ping Updated').setDescription(enabled ? 'Ticket ping is enabled.' : 'Ticket ping is disabled.').setColor(0x00ff00)],
+            ephemeral: true
+          });
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update ticket ping setting: ${error.message}`, ephemeral: true });
+        }
+      }
+
+      if (interaction.customId.startsWith('setup_log_color') || interaction.customId.startsWith('settings_log_color')) {
+        const colorHex = interaction.values[0];
+        try {
+          await db.updateLogColor(interaction.guild.id, colorHex);
+          const colorName = {
+            '0xff0000': 'Red',
+            '0xffa500': 'Orange',
+            '0xffff00': 'Yellow',
+            '0x00ff00': 'Green',
+            '0x0000ff': 'Blue',
+            '0x8000ff': 'Purple',
+            '0x000000': 'Black',
+            '0xffffff': 'White',
+            '0x808080': 'Gray',
+            '0x00ffff': 'Cyan'
+          };
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Log Color Updated').setDescription(`Log embeds color set to **${colorName[colorHex] || colorHex}**`).setColor(parseInt(colorHex))],
+            ephemeral: true
+          });
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update log color: ${error.message}`, ephemeral: true });
         }
       }
     }

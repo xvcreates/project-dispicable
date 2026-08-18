@@ -45,7 +45,11 @@ async function ensureGuildSettingsColumns() {
   const columnDefinitions = [
     ['cmds_role_id', 'TEXT'],
     ['modlog_channel_id', 'TEXT'],
-    ['general_log_channel_id', 'TEXT']
+    ['general_log_channel_id', 'TEXT'],
+    ['log_color', 'TEXT DEFAULT 0x0099ff'],
+    ['ticket_ping_enabled', 'INTEGER DEFAULT 0'],
+    ['ticket_ping_role_ids', 'TEXT'],
+    ['ticket_view_role_ids', 'TEXT']
   ];
 
   for (const [columnName, columnType] of columnDefinitions) {
@@ -66,7 +70,11 @@ async function initialize() {
     block_invites INTEGER DEFAULT 1,
     cmds_role_id TEXT,
     modlog_channel_id TEXT,
-    general_log_channel_id TEXT
+    general_log_channel_id TEXT,
+    log_color TEXT DEFAULT '0x0099ff',
+    ticket_ping_enabled INTEGER DEFAULT 0,
+    ticket_ping_role_ids TEXT,
+    ticket_view_role_ids TEXT
   )`);
 
   await ensureGuildSettingsColumns();
@@ -112,6 +120,14 @@ async function getGuildSettings(guildId) {
       .split(',')
       .map(value => value.trim())
       .filter(Boolean);
+    const ticketPingRoleIds = (row.ticket_ping_role_ids || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+    const ticketViewRoleIds = (row.ticket_view_role_ids || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
 
     return {
       raidMode: Boolean(row.raid_mode),
@@ -123,7 +139,11 @@ async function getGuildSettings(guildId) {
       cmdsRoleId: cmdRoleIds[0] || null,
       cmdsRoleIds: cmdRoleIds,
       modlogChannelId: row.modlog_channel_id,
-      generalLogChannelId: row.general_log_channel_id
+      generalLogChannelId: row.general_log_channel_id,
+      logColor: row.log_color || '0x0099ff',
+      ticketPingEnabled: Boolean(row.ticket_ping_enabled),
+      ticketPingRoleIds: ticketPingRoleIds,
+      ticketViewRoleIds: ticketViewRoleIds
     };
   }
   await run(`INSERT INTO guild_settings (guild_id) VALUES (?)`, [guildId]);
@@ -187,6 +207,22 @@ module.exports = {
   },
   updateGeneralLogChannel: async (guildId, channelId) => {
     await run('UPDATE guild_settings SET general_log_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
+  },
+  updateTicketPingEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET ticket_ping_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateTicketPingRoles: async (guildId, roleIds) => {
+    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
+    const value = normalized.length ? normalized.join(',') : null;
+    await run('UPDATE guild_settings SET ticket_ping_role_ids = ? WHERE guild_id = ?', [value, guildId]);
+  },
+  updateTicketViewRoles: async (guildId, roleIds) => {
+    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
+    const value = normalized.length ? normalized.join(',') : null;
+    await run('UPDATE guild_settings SET ticket_view_role_ids = ? WHERE guild_id = ?', [value, guildId]);
+  },
+  updateLogColor: async (guildId, colorHex) => {
+    await run('UPDATE guild_settings SET log_color = ? WHERE guild_id = ?', [colorHex, guildId]);
   }
 };
 
