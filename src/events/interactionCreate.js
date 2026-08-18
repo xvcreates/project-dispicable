@@ -24,13 +24,16 @@ module.exports = {
       const guild = interaction.guild;
 
       if (interaction.customId.startsWith('setup_cmds_role') || interaction.customId.startsWith('settings_cmds_role')) {
-        const selectedRole = interaction.values[0];
+        const selectedRoles = interaction.values;
         try {
-          await db.updateCmdsRole(guild.id, selectedRole);
-          const role = await guild.roles.fetch(selectedRole);
+          await db.updateCmdsRole(guild.id, selectedRoles);
+          const roleMentions = await Promise.all(selectedRoles.map(async (roleId) => {
+            const role = await guild.roles.fetch(roleId);
+            return role ? role.toString() : roleId;
+          }));
           const embed = new EmbedBuilder()
-            .setTitle('✅ Role Updated')
-            .setDescription(`Cmds role has been set to ${role}`)
+            .setTitle('✅ Roles Updated')
+            .setDescription(`Cmds roles have been set to ${roleMentions.join(', ')}`)
             .setColor(0x00ff00);
           await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {

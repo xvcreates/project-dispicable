@@ -20,10 +20,14 @@ module.exports = {
     let modlogChannelName = 'Not set';
     let generalLogChannelName = 'Not set';
 
-    if (settings.cmdsRoleId) {
+    const selectedRoles = settings.cmdsRoleIds && settings.cmdsRoleIds.length ? settings.cmdsRoleIds : [];
+    if (selectedRoles.length > 0) {
       try {
-        const role = await guild.roles.fetch(settings.cmdsRoleId);
-        cmdsRoleName = role ? `<@&${role.id}>` : 'Role not found';
+        const roleNames = await Promise.all(selectedRoles.map(async (roleId) => {
+          const role = await guild.roles.fetch(roleId);
+          return role ? `<@&${role.id}>` : 'Role not found';
+        }));
+        cmdsRoleName = roleNames.join(', ');
       } catch (e) {
         cmdsRoleName = 'Role not found';
       }
@@ -66,9 +70,9 @@ module.exports = {
       .addComponents(
         new RoleSelectMenuBuilder()
           .setCustomId('settings_cmds_role')
-          .setPlaceholder('Change cmds role')
+          .setPlaceholder('Change cmds roles')
           .setMinValues(1)
-          .setMaxValues(1)
+          .setMaxValues(10)
       );
 
     const modlogRow = new ActionRowBuilder()

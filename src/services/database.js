@@ -38,6 +38,23 @@ function all(sql, params = []) {
   });
 }
 
+async function ensureGuildSettingsColumns() {
+  const columns = await all('PRAGMA table_info(guild_settings)');
+  const existingNames = new Set(columns.map(column => column.name));
+
+  const columnDefinitions = [
+    ['cmds_role_id', 'TEXT'],
+    ['modlog_channel_id', 'TEXT'],
+    ['general_log_channel_id', 'TEXT']
+  ];
+
+  for (const [columnName, columnType] of columnDefinitions) {
+    if (!existingNames.has(columnName)) {
+      await run(`ALTER TABLE guild_settings ADD COLUMN ${columnName} ${columnType}`);
+    }
+  }
+}
+
 async function initialize() {
   await run(`CREATE TABLE IF NOT EXISTS guild_settings (
     guild_id TEXT PRIMARY KEY,
@@ -51,6 +68,8 @@ async function initialize() {
     modlog_channel_id TEXT,
     general_log_channel_id TEXT
   )`);
+
+  await ensureGuildSettingsColumns();
 
   await run(`CREATE TABLE IF NOT EXISTS warnings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +108,11 @@ async function initialize() {
 async function getGuildSettings(guildId) {
   const row = await get('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
   if (row) {
+    const cmdRoleIds = (row.cmds_role_id || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+
     return {
       raidMode: Boolean(row.raid_mode),
       automodEnabled: Boolean(row.automod_enabled),
@@ -96,7 +120,8 @@ async function getGuildSettings(guildId) {
       spamWindowMs: row.spam_window_ms,
       maxMentions: row.max_mentions,
       blockInvites: Boolean(row.block_invites),
-      cmdsRoleId: row.cmds_role_id,
+      cmdsRoleId: cmdRoleIds[0] || null,
+      cmdsRoleIds: cmdRoleIds,
       modlogChannelId: row.modlog_channel_id,
       generalLogChannelId: row.general_log_channel_id
     };
@@ -152,8 +177,10 @@ module.exports = {
   get,
   all,
   run,
-  updateCmdsRole: async (guildId, roleId) => {
-    await run('UPDATE guild_settings SET cmds_role_id = ? WHERE guild_id = ?', [roleId, guildId]);
+  updateCmdsRole: async (guildId, roleIds) => {
+    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
+    const value = normalized.length ? normalized.join(',') : null;
+    await run('UPDATE guild_settings SET cmds_role_id = ? WHERE guild_id = ?', [value, guildId]);
   },
   updateModlogChannel: async (guildId, channelId) => {
     await run('UPDATE guild_settings SET modlog_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);

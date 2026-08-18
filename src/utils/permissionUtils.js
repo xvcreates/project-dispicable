@@ -10,13 +10,13 @@ async function memberHasCmds(member) {
   if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
   if (member.permissions?.has(PermissionFlagsBits.ModerateMembers)) return true;
 
-  // Check database for configured cmds role
   const settings = await db.getGuildSettings(member.guild.id);
-  if (settings.cmdsRoleId) {
-    return member.roles.cache.has(settings.cmdsRoleId);
+  const configuredRoleIds = settings.cmdsRoleIds || (settings.cmdsRoleId ? [settings.cmdsRoleId] : []);
+
+  if (configuredRoleIds.length > 0) {
+    return configuredRoleIds.some(roleId => member.roles.cache.has(roleId));
   }
 
-  // Fallback to checking for 'cmds' role name
   const cmdsRole = getCmdsRole(member.guild);
   return cmdsRole ? member.roles.cache.has(cmdsRole.id) : false;
 }

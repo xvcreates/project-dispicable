@@ -30,9 +30,9 @@ module.exports = {
       .addComponents(
         new RoleSelectMenuBuilder()
           .setCustomId('setup_cmds_role')
-          .setPlaceholder(settings.cmdsRoleId ? 'Change cmds role' : 'Select cmds role')
+          .setPlaceholder(settings.cmdsRoleIds && settings.cmdsRoleIds.length ? 'Change cmds roles' : 'Select cmds roles')
           .setMinValues(1)
-          .setMaxValues(1)
+          .setMaxValues(10)
       );
 
     const channelsRow = new ActionRowBuilder()
