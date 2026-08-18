@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
 
 module.exports = {
@@ -17,19 +17,19 @@ module.exports = {
 
     const setupEmbed = new EmbedBuilder()
       .setTitle('🔧 Bot Setup Wizard')
-      .setDescription('Configure bot settings for your server')
-      .setColor(0x00ff00)
+      .setDescription('Configure bot settings for your server. Click buttons to toggle features or use menus to set values.')
+      .setColor(parseInt(settings.logColor || '0x0099ff'))
       .addFields(
-        { name: 'Step 1: Cmds Role', value: 'Select which role(s) can use moderation commands', inline: false },
-        { name: 'Step 2: Moderation Logs Channel', value: 'Select where moderation logs are sent', inline: false },
-        { name: 'Step 3: General Logs Channel', value: 'Select where general logs are sent (optional)', inline: false },
-        { name: 'Step 4: Log Color', value: 'Choose a color for log embeds', inline: false },
-        { name: 'Step 5: Ticket Ping Roles', value: 'Select role(s) to ping when tickets are created', inline: false },
-        { name: 'Step 6: Ticket View Roles', value: 'Select role(s) allowed to view tickets', inline: false },
-        { name: 'Step 7: Ticket Ping Toggle', value: settings.ticketPingEnabled ? 'Ping is enabled' : 'Ping is disabled', inline: false }
+        { name: '📋 Basic Configuration', value: 'Roles • Channels • Colors', inline: false },
+        { name: '🔔 Notifications', value: 'DM on warn/mute/ban • Ping mods', inline: false },
+        { name: '🎖️ Punishment Escalation', value: 'Auto-action at X warnings', inline: false },
+        { name: '👋 Auto-join Features', value: 'Auto-role • Welcome messages', inline: false },
+        { name: '⏱️ Moderation Defaults', value: 'Default durations & appeal links', inline: false },
+        { name: '📊 Action Logging', value: 'Toggle logging for specific actions', inline: false }
       )
-      .setFooter({ text: 'Use the menus below to configure each setting' });
+      .setFooter({ text: 'Use menus and buttons below to configure' });
 
+    // Row 1: Basic Roles
     const rolesRow = new ActionRowBuilder()
       .addComponents(
         new RoleSelectMenuBuilder()
@@ -39,6 +39,7 @@ module.exports = {
           .setMaxValues(10)
       );
 
+    // Row 2: Basic Channels
     const channelsRow = new ActionRowBuilder()
       .addComponents(
         new ChannelSelectMenuBuilder()
@@ -49,16 +50,7 @@ module.exports = {
           .setMaxValues(1)
       );
 
-    const generalLogsRow = new ActionRowBuilder()
-      .addComponents(
-        new ChannelSelectMenuBuilder()
-          .setCustomId('setup_general_log_channel')
-          .setPlaceholder('Select general log channel (optional)')
-          .addChannelTypes(ChannelType.GuildText)
-          .setMinValues(0)
-          .setMaxValues(1)
-      );
-
+    // Row 3: Log Color
     const logColorRow = new ActionRowBuilder()
       .addComponents(
         new StringSelectMenuBuilder()
@@ -73,47 +65,146 @@ module.exports = {
             { label: '🟣 Purple', value: '0x8000ff', emoji: '🟣' },
             { label: '⚫ Black', value: '0x000000', emoji: '⚫' },
             { label: '⚪ White', value: '0xffffff', emoji: '⚪' },
-            { label: '🩶 Gray', value: '0x808080', emoji: '🩶' },
+            { label: '🟤 Gray', value: '0x808080', emoji: '🟤' },
             { label: '🩵 Cyan', value: '0x00ffff', emoji: '🩵' }
           )
           .setMinValues(1)
           .setMaxValues(1)
       );
 
-    const ticketPingRolesRow = new ActionRowBuilder()
+    // Row 4: Notification Toggles
+    const notificationTogglesRow = new ActionRowBuilder()
       .addComponents(
-        new RoleSelectMenuBuilder()
-          .setCustomId('setup_ticket_ping_roles')
-          .setPlaceholder('Select ticket ping roles')
-          .setMinValues(0)
-          .setMaxValues(10)
+        new ButtonBuilder()
+          .setCustomId(`setup_notify_warn_${!settings.notifyWarnEnabled}`)
+          .setLabel('DM on Warn')
+          .setStyle(settings.notifyWarnEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`setup_notify_mute_${!settings.notifyMuteEnabled}`)
+          .setLabel('DM on Mute')
+          .setStyle(settings.notifyMuteEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`setup_notify_ban_${!settings.notifyBanEnabled}`)
+          .setLabel('DM on Ban')
+          .setStyle(settings.notifyBanEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`setup_ping_mods_${!settings.pingModsEnabled}`)
+          .setLabel('Ping Mods')
+          .setStyle(settings.pingModsEnabled ? ButtonStyle.Success : ButtonStyle.Danger)
       );
 
-    const ticketViewRolesRow = new ActionRowBuilder()
+    // Row 5: Escalation Toggle + Threshold
+    const escalationRow = new ActionRowBuilder()
       .addComponents(
-        new RoleSelectMenuBuilder()
-          .setCustomId('setup_ticket_view_roles')
-          .setPlaceholder('Select ticket view roles')
-          .setMinValues(0)
-          .setMaxValues(10)
-      );
-
-    const ticketPingToggleRow = new ActionRowBuilder()
-      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`setup_escalation_${!settings.escalationEnabled}`)
+          .setLabel('Auto-escalation')
+          .setStyle(settings.escalationEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
         new StringSelectMenuBuilder()
-          .setCustomId('setup_ticket_ping_toggle')
-          .setPlaceholder('Choose ticket ping mode')
+          .setCustomId('setup_escalation_threshold')
+          .setPlaceholder(`Threshold: ${settings.escalationWarnThreshold}`)
           .addOptions(
-            { label: 'No ping', value: 'false', default: !settings.ticketPingEnabled },
-            { label: 'Ping selected roles', value: 'true', default: settings.ticketPingEnabled }
+            { label: '3 Warnings', value: '3' },
+            { label: '5 Warnings', value: '5' },
+            { label: '7 Warnings', value: '7' },
+            { label: '10 Warnings', value: '10' }
           )
           .setMinValues(1)
           .setMaxValues(1)
       );
 
+    // Row 6: Auto-role + Selection
+    const autoRoleRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`setup_auto_role_${!settings.autoRoleEnabled}`)
+          .setLabel('Auto-role')
+          .setStyle(settings.autoRoleEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new RoleSelectMenuBuilder()
+          .setCustomId('setup_auto_role_id')
+          .setPlaceholder('Select auto-join role')
+          .setMinValues(0)
+          .setMaxValues(1)
+      );
+
+    // Row 7: Welcome + Channel
+    const welcomeRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`setup_welcome_${!settings.welcomeEnabled}`)
+          .setLabel('Welcome')
+          .setStyle(settings.welcomeEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ChannelSelectMenuBuilder()
+          .setCustomId('setup_welcome_channel')
+          .setPlaceholder('Welcome channel (optional)')
+          .addChannelTypes(ChannelType.GuildText)
+          .setMinValues(0)
+          .setMaxValues(1)
+      );
+
+    // Row 8: Default Mute Duration
+    const defaultsRow = new ActionRowBuilder()
+      .addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('setup_default_mute_duration')
+          .setPlaceholder(`Mute duration: ${settings.defaultMuteDuration}m`)
+          .addOptions(
+            { label: '15 minutes', value: '15' },
+            { label: '30 minutes', value: '30' },
+            { label: '1 hour', value: '60' },
+            { label: '1 day', value: '1440' },
+            { label: '1 week', value: '10080' }
+          )
+          .setMinValues(1)
+          .setMaxValues(1)
+      );
+
+    // Row 9: Action Logging Toggles
+    const loggingTogglesRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`setup_log_warns_${!settings.logWarnsEnabled}`)
+          .setLabel('Log Warns')
+          .setStyle(settings.logWarnsEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`setup_log_mutes_${!settings.logMutesEnabled}`)
+          .setLabel('Log Mutes')
+          .setStyle(settings.logMutesEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`setup_log_kicks_${!settings.logKicksEnabled}`)
+          .setLabel('Log Kicks')
+          .setStyle(settings.logKicksEnabled ? ButtonStyle.Success : ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`setup_log_bans_${!settings.logBansEnabled}`)
+          .setLabel('Log Bans')
+          .setStyle(settings.logBansEnabled ? ButtonStyle.Success : ButtonStyle.Danger)
+      );
+
+    // Row 10: Audit Log Channel
+    const auditLogRow = new ActionRowBuilder()
+      .addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId('setup_audit_log_channel')
+          .setPlaceholder('Audit log channel (optional)')
+          .addChannelTypes(ChannelType.GuildText)
+          .setMinValues(0)
+          .setMaxValues(1)
+      );
+
     await interaction.reply({
       embeds: [setupEmbed],
-      components: [rolesRow, channelsRow, generalLogsRow, logColorRow, ticketPingRolesRow, ticketViewRolesRow, ticketPingToggleRow],
+      components: [
+        rolesRow,
+        channelsRow,
+        logColorRow,
+        notificationTogglesRow,
+        escalationRow,
+        autoRoleRow,
+        welcomeRow,
+        defaultsRow,
+        loggingTogglesRow,
+        auditLogRow
+      ],
       ephemeral: true
     });
   }

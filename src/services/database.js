@@ -49,7 +49,29 @@ async function ensureGuildSettingsColumns() {
     ['log_color', 'TEXT DEFAULT 0x0099ff'],
     ['ticket_ping_enabled', 'INTEGER DEFAULT 0'],
     ['ticket_ping_role_ids', 'TEXT'],
-    ['ticket_view_role_ids', 'TEXT']
+    ['ticket_view_role_ids', 'TEXT'],
+    // Notification Settings
+    ['notify_warn_enabled', 'INTEGER DEFAULT 0'],
+    ['notify_mute_enabled', 'INTEGER DEFAULT 0'],
+    ['notify_ban_enabled', 'INTEGER DEFAULT 0'],
+    ['ping_mods_enabled', 'INTEGER DEFAULT 0'],
+    // Punishment Escalation
+    ['escalation_enabled', 'INTEGER DEFAULT 0'],
+    ['escalation_warn_threshold', 'INTEGER DEFAULT 5'],
+    // Auto-join Features
+    ['auto_role_enabled', 'INTEGER DEFAULT 0'],
+    ['auto_role_id', 'TEXT'],
+    ['welcome_enabled', 'INTEGER DEFAULT 0'],
+    ['welcome_channel_id', 'TEXT'],
+    // Moderation Defaults
+    ['default_mute_duration', 'INTEGER DEFAULT 60'],
+    ['default_ban_appeal_link', 'TEXT'],
+    // Moderation Logging
+    ['log_warns_enabled', 'INTEGER DEFAULT 1'],
+    ['log_mutes_enabled', 'INTEGER DEFAULT 1'],
+    ['log_kicks_enabled', 'INTEGER DEFAULT 1'],
+    ['log_bans_enabled', 'INTEGER DEFAULT 1'],
+    ['audit_log_channel_id', 'TEXT']
   ];
 
   for (const [columnName, columnType] of columnDefinitions) {
@@ -143,7 +165,29 @@ async function getGuildSettings(guildId) {
       logColor: row.log_color || '0x0099ff',
       ticketPingEnabled: Boolean(row.ticket_ping_enabled),
       ticketPingRoleIds: ticketPingRoleIds,
-      ticketViewRoleIds: ticketViewRoleIds
+      ticketViewRoleIds: ticketViewRoleIds,
+      // Notification Settings
+      notifyWarnEnabled: Boolean(row.notify_warn_enabled),
+      notifyMuteEnabled: Boolean(row.notify_mute_enabled),
+      notifyBanEnabled: Boolean(row.notify_ban_enabled),
+      pingModsEnabled: Boolean(row.ping_mods_enabled),
+      // Punishment Escalation
+      escalationEnabled: Boolean(row.escalation_enabled),
+      escalationWarnThreshold: row.escalation_warn_threshold || 5,
+      // Auto-join Features
+      autoRoleEnabled: Boolean(row.auto_role_enabled),
+      autoRoleId: row.auto_role_id,
+      welcomeEnabled: Boolean(row.welcome_enabled),
+      welcomeChannelId: row.welcome_channel_id,
+      // Moderation Defaults
+      defaultMuteDuration: row.default_mute_duration || 60,
+      defaultBanAppealLink: row.default_ban_appeal_link,
+      // Moderation Logging
+      logWarnsEnabled: Boolean(row.log_warns_enabled),
+      logMutesEnabled: Boolean(row.log_mutes_enabled),
+      logKicksEnabled: Boolean(row.log_kicks_enabled),
+      logBansEnabled: Boolean(row.log_bans_enabled),
+      auditLogChannelId: row.audit_log_channel_id
     };
   }
   await run(`INSERT INTO guild_settings (guild_id) VALUES (?)`, [guildId]);
@@ -223,6 +267,62 @@ module.exports = {
   },
   updateLogColor: async (guildId, colorHex) => {
     await run('UPDATE guild_settings SET log_color = ? WHERE guild_id = ?', [colorHex, guildId]);
+  },
+  // Notification Settings
+  updateNotifyWarn: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET notify_warn_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateNotifyMute: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET notify_mute_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateNotifyBan: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET notify_ban_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updatePingMods: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET ping_mods_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  // Punishment Escalation
+  updateEscalationEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET escalation_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateEscalationThreshold: async (guildId, threshold) => {
+    await run('UPDATE guild_settings SET escalation_warn_threshold = ? WHERE guild_id = ?', [threshold, guildId]);
+  },
+  // Auto-join Features
+  updateAutoRoleEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET auto_role_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateAutoRoleId: async (guildId, roleId) => {
+    await run('UPDATE guild_settings SET auto_role_id = ? WHERE guild_id = ?', [roleId, guildId]);
+  },
+  updateWelcomeEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET welcome_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateWelcomeChannelId: async (guildId, channelId) => {
+    await run('UPDATE guild_settings SET welcome_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
+  },
+  // Moderation Defaults
+  updateDefaultMuteDuration: async (guildId, minutes) => {
+    await run('UPDATE guild_settings SET default_mute_duration = ? WHERE guild_id = ?', [minutes, guildId]);
+  },
+  updateDefaultBanAppealLink: async (guildId, link) => {
+    await run('UPDATE guild_settings SET default_ban_appeal_link = ? WHERE guild_id = ?', [link, guildId]);
+  },
+  // Moderation Logging
+  updateLogWarnsEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET log_warns_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateLogMutesEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET log_mutes_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateLogKicksEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET log_kicks_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateLogBansEnabled: async (guildId, enabled) => {
+    await run('UPDATE guild_settings SET log_bans_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
+  },
+  updateAuditLogChannel: async (guildId, channelId) => {
+    await run('UPDATE guild_settings SET audit_log_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
   }
 };
 

@@ -19,6 +19,116 @@ module.exports = {
       }
     }
 
+    // Handle buttons
+    if (interaction.isButton()) {
+      const customId = interaction.customId;
+      const guild = interaction.guild;
+
+      // Notification toggles
+      if (customId.startsWith('setup_notify_warn_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateNotifyWarn(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`DM on warn ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      if (customId.startsWith('setup_notify_mute_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateNotifyMute(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`DM on mute ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      if (customId.startsWith('setup_notify_ban_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateNotifyBan(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`DM on ban ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      if (customId.startsWith('setup_ping_mods_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updatePingMods(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Ping mods on action ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      // Escalation toggle
+      if (customId.startsWith('setup_escalation_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateEscalationEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Auto-escalation ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      // Auto-role toggle
+      if (customId.startsWith('setup_auto_role_') && !customId.includes('id')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateAutoRoleEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Auto-role on join ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      // Welcome toggle
+      if (customId.startsWith('setup_welcome_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateWelcomeEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Welcome messages ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      // Logging toggles
+      if (customId.startsWith('setup_log_warns_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateLogWarnsEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Log warnings ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      if (customId.startsWith('setup_log_mutes_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateLogMutesEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Log mutes ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      if (customId.startsWith('setup_log_kicks_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateLogKicksEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Log kicks ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+
+      if (customId.startsWith('setup_log_bans_')) {
+        const enabled = customId.endsWith('_true');
+        await db.updateLogBansEnabled(guild.id, enabled);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Setting Updated').setDescription(`Log bans ${enabled ? 'enabled' : 'disabled'}`).setColor(enabled ? 0x00ff00 : 0xff0000)],
+          ephemeral: true
+        });
+      }
+    }
+
     // Handle role select menus
     if (interaction.isRoleSelectMenu()) {
       const guild = interaction.guild;
@@ -38,6 +148,28 @@ module.exports = {
           await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {
           await interaction.reply({ content: `❌ Failed to update role: ${error.message}`, ephemeral: true });
+        }
+      }
+
+      if (interaction.customId.startsWith('setup_auto_role_id') || interaction.customId.startsWith('settings_auto_role_id')) {
+        try {
+          if (interaction.values.length === 0) {
+            await db.updateAutoRoleId(guild.id, null);
+            await interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('✅ Auto-role Cleared').setDescription('Auto-role has been removed').setColor(0x00ff00)],
+              ephemeral: true
+            });
+          } else {
+            const roleId = interaction.values[0];
+            await db.updateAutoRoleId(guild.id, roleId);
+            const role = await guild.roles.fetch(roleId);
+            await interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('✅ Auto-role Set').setDescription(`Auto-role set to ${role}`).setColor(0x00ff00)],
+              ephemeral: true
+            });
+          }
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update auto-role: ${error.message}`, ephemeral: true });
         }
       }
 
@@ -112,12 +244,39 @@ module.exports = {
           await interaction.reply({ content: `❌ Failed to update log color: ${error.message}`, ephemeral: true });
         }
       }
+
+      if (interaction.customId.startsWith('setup_escalation_threshold') || interaction.customId.startsWith('settings_escalation_threshold')) {
+        const threshold = parseInt(interaction.values[0]);
+        try {
+          await db.updateEscalationThreshold(interaction.guild.id, threshold);
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Escalation Threshold Updated').setDescription(`Auto-escalation threshold set to ${threshold} warnings`).setColor(0x00ff00)],
+            ephemeral: true
+          });
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update escalation threshold: ${error.message}`, ephemeral: true });
+        }
+      }
+
+      if (interaction.customId.startsWith('setup_default_mute_duration') || interaction.customId.startsWith('settings_default_mute_duration')) {
+        const minutes = parseInt(interaction.values[0]);
+        const timeLabel = minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 1440)}d`;
+        try {
+          await db.updateDefaultMuteDuration(interaction.guild.id, minutes);
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Default Mute Duration Updated').setDescription(`Default mute duration set to ${timeLabel}`).setColor(0x00ff00)],
+            ephemeral: true
+          });
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update mute duration: ${error.message}`, ephemeral: true });
+        }
+      }
     }
 
     // Handle channel select menus
     if (interaction.isChannelSelectMenu()) {
       const guild = interaction.guild;
-      const selectedChannel = interaction.values[0];
+      const selectedChannel = interaction.values.length > 0 ? interaction.values[0] : null;
 
       if (interaction.customId.startsWith('setup_modlog_channel') || interaction.customId.startsWith('settings_modlog_channel')) {
         try {
@@ -133,26 +292,45 @@ module.exports = {
         }
       }
 
-      if (interaction.customId.startsWith('setup_general_log_channel') || interaction.customId.startsWith('settings_general_log_channel')) {
+      if (interaction.customId.startsWith('setup_welcome_channel') || interaction.customId.startsWith('settings_welcome_channel')) {
         try {
-          if (interaction.values.length === 0) {
-            await db.updateGeneralLogChannel(guild.id, null);
-            const embed = new EmbedBuilder()
-              .setTitle('✅ Channel Cleared')
-              .setDescription('General log channel has been unset')
-              .setColor(0x00ff00);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+          if (!selectedChannel) {
+            await db.updateWelcomeChannelId(guild.id, null);
+            await interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Cleared').setDescription('Welcome channel has been unset').setColor(0x00ff00)],
+              ephemeral: true
+            });
           } else {
-            await db.updateGeneralLogChannel(guild.id, selectedChannel);
+            await db.updateWelcomeChannelId(guild.id, selectedChannel);
             const channel = await guild.channels.fetch(selectedChannel);
-            const embed = new EmbedBuilder()
-              .setTitle('✅ Channel Updated')
-              .setDescription(`General log channel has been set to ${channel}`)
-              .setColor(0x00ff00);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Set').setDescription(`Welcome channel set to ${channel}`).setColor(0x00ff00)],
+              ephemeral: true
+            });
           }
         } catch (error) {
-          await interaction.reply({ content: `❌ Failed to update channel: ${error.message}`, ephemeral: true });
+          await interaction.reply({ content: `❌ Failed to update welcome channel: ${error.message}`, ephemeral: true });
+        }
+      }
+
+      if (interaction.customId.startsWith('setup_audit_log_channel') || interaction.customId.startsWith('settings_audit_log_channel')) {
+        try {
+          if (!selectedChannel) {
+            await db.updateAuditLogChannel(guild.id, null);
+            await interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('✅ Audit Log Channel Cleared').setDescription('Audit log channel has been unset').setColor(0x00ff00)],
+              ephemeral: true
+            });
+          } else {
+            await db.updateAuditLogChannel(guild.id, selectedChannel);
+            const channel = await guild.channels.fetch(selectedChannel);
+            await interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('✅ Audit Log Channel Set').setDescription(`Audit log channel set to ${channel}`).setColor(0x00ff00)],
+              ephemeral: true
+            });
+          }
+        } catch (error) {
+          await interaction.reply({ content: `❌ Failed to update audit log channel: ${error.message}`, ephemeral: true });
         }
       }
     }
