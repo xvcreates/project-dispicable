@@ -10,7 +10,7 @@ module.exports = {
     .addUserOption(option => option.setName('user').setDescription('User to warn').setRequired(true))
     .addStringOption(option => option.setName('reason').setDescription('Reason for the warning').setRequired(false)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) {
+    if (!(await memberHasCmds(interaction.member))) {
       return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
     }
 

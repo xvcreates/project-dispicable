@@ -8,7 +8,7 @@ module.exports = {
     .setDescription('Display warnings for a user.')
     .addUserOption(option => option.setName('user').setDescription('User to inspect').setRequired(true)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) {
+    if (!(await memberHasCmds(interaction.member))) {
       return interaction.reply({ content: 'You need the cmds role to view warnings.', ephemeral: true });
     }
 

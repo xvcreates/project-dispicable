@@ -11,7 +11,7 @@ module.exports = {
     .addIntegerOption(option => option.setName('hours').setDescription('Ban duration in hours').setRequired(true))
     .addStringOption(option => option.setName('reason').setDescription('Reason for ban').setRequired(false)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const user = interaction.options.getUser('user');
     const hours = interaction.options.getInteger('hours');

@@ -8,7 +8,7 @@ module.exports = {
     .setDescription('Clear all warnings for a user.')
     .addUserOption(option => option.setName('user').setDescription('User to clear warnings for').setRequired(true)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) {
+    if (!(await memberHasCmds(interaction.member))) {
       return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
     }
 

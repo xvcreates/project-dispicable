@@ -296,15 +296,17 @@ module.exports = {
         try {
           if (!selectedChannel) {
             await db.updateWelcomeChannelId(guild.id, null);
+            await db.updateWelcomeEnabled(guild.id, false);
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Cleared').setDescription('Welcome channel has been unset').setColor(0x00ff00)],
               ephemeral: true
             });
           } else {
             await db.updateWelcomeChannelId(guild.id, selectedChannel);
+            await db.updateWelcomeEnabled(guild.id, true);
             const channel = await guild.channels.fetch(selectedChannel);
             await interaction.reply({
-              embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Set').setDescription(`Welcome channel set to ${channel}`).setColor(0x00ff00)],
+              embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Set').setDescription(`Welcome messages are now enabled in ${channel}`).setColor(0x00ff00)],
               ephemeral: true
             });
           }

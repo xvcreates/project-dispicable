@@ -8,7 +8,7 @@ module.exports = {
     .addChannelOption(option => option.setName('channel').setDescription('The channel to set slowmode').setRequired(true))
     .addIntegerOption(option => option.setName('time').setDescription('Slowmode time in seconds').setRequired(true).setMinValue(0).setMaxValue(21600)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const channel = interaction.options.getChannel('channel');
     const time = interaction.options.getInteger('time');

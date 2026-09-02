@@ -8,7 +8,7 @@ module.exports = {
     .addUserOption(option => option.setName('user').setDescription('The user to remove role from').setRequired(true))
     .addRoleOption(option => option.setName('role').setDescription('The role to remove').setRequired(true)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const user = interaction.options.getUser('user');
     const role = interaction.options.getRole('role');

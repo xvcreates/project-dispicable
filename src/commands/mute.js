@@ -10,7 +10,7 @@ module.exports = {
     .addUserOption(option => option.setName('user').setDescription('The user to mute').setRequired(true))
     .addIntegerOption(option => option.setName('time').setDescription('Mute duration in minutes').setRequired(true)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const user = interaction.options.getUser('user');
     const time = interaction.options.getInteger('time');

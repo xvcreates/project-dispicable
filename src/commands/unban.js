@@ -10,7 +10,7 @@ module.exports = {
     .addUserOption(option => option.setName('user').setDescription('The user to unban').setRequired(true))
     .addStringOption(option => option.setName('reason').setDescription('Reason for unbanning').setRequired(false)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const user = interaction.options.getUser('user');
     const reason = interaction.options.getString('reason') || 'No reason provided';

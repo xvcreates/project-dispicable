@@ -8,7 +8,7 @@ module.exports = {
     .setName('raidmode')
     .setDescription('Toggle raid mode on or off.'),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) {
+    if (!(await memberHasCmds(interaction.member))) {
       return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
     }
 

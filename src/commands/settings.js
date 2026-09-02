@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
 
 module.exports = {
@@ -51,6 +51,32 @@ module.exports = {
       }
     }
 
+    let ticketPingRolesText = 'Not set';
+    if (settings.ticketPingRoleIds && settings.ticketPingRoleIds.length) {
+      try {
+        const roleNames = await Promise.all(settings.ticketPingRoleIds.map(async (roleId) => {
+          const role = await guild.roles.fetch(roleId);
+          return role ? `<@&${role.id}>` : 'Role not found';
+        }));
+        ticketPingRolesText = roleNames.join(', ');
+      } catch (e) {
+        ticketPingRolesText = 'Role not found';
+      }
+    }
+
+    let ticketViewRolesText = 'Not set';
+    if (settings.ticketViewRoleIds && settings.ticketViewRoleIds.length) {
+      try {
+        const roleNames = await Promise.all(settings.ticketViewRoleIds.map(async (roleId) => {
+          const role = await guild.roles.fetch(roleId);
+          return role ? `<@&${role.id}>` : 'Role not found';
+        }));
+        ticketViewRolesText = roleNames.join(', ');
+      } catch (e) {
+        ticketViewRolesText = 'Role not found';
+      }
+    }
+
     const settingsEmbed = new EmbedBuilder()
       .setTitle('⚙️ Bot Settings')
       .setDescription(`Current configuration for **${guild.name}**`)
@@ -59,6 +85,9 @@ module.exports = {
         { name: '🛡️ Cmds Role', value: cmdsRoleName, inline: false },
         { name: '📋 Moderation Log Channel', value: modlogChannelName, inline: false },
         { name: '📊 General Log Channel', value: generalLogChannelName, inline: false },
+        { name: '🎫 Ticket Ping Roles', value: ticketPingRolesText, inline: false },
+        { name: '👀 Ticket View Roles', value: ticketViewRolesText, inline: false },
+        { name: '🔔 Ticket Ping', value: settings.ticketPingEnabled ? '✅ Enabled' : '❌ Disabled', inline: true },
         { name: '🤖 Automod', value: settings.automodEnabled ? '✅ Enabled' : '❌ Disabled', inline: true },
         { name: '📨 Block Invites', value: settings.blockInvites ? '✅ Yes' : '❌ No', inline: true },
         { name: '🔴 Raid Mode', value: settings.raidMode ? '✅ Active' : '❌ Inactive', inline: true }
@@ -95,9 +124,40 @@ module.exports = {
           .setMaxValues(1)
       );
 
+    const ticketPingRolesRow = new ActionRowBuilder()
+      .addComponents(
+        new RoleSelectMenuBuilder()
+          .setCustomId('settings_ticket_ping_roles')
+          .setPlaceholder('Change ticket ping roles')
+          .setMinValues(0)
+          .setMaxValues(10)
+      );
+
+    const ticketViewRolesRow = new ActionRowBuilder()
+      .addComponents(
+        new RoleSelectMenuBuilder()
+          .setCustomId('settings_ticket_view_roles')
+          .setPlaceholder('Change ticket view roles')
+          .setMinValues(0)
+          .setMaxValues(10)
+      );
+
+    const ticketPingToggleRow = new ActionRowBuilder()
+      .addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('settings_ticket_ping_toggle')
+          .setPlaceholder('Choose ticket ping mode')
+          .addOptions(
+            { label: 'No ping', value: 'false', default: !settings.ticketPingEnabled },
+            { label: 'Ping selected roles', value: 'true', default: settings.ticketPingEnabled }
+          )
+          .setMinValues(1)
+          .setMaxValues(1)
+      );
+
     await interaction.reply({
       embeds: [settingsEmbed],
-      components: [rolesRow, modlogRow, generalLogRow],
+      components: [rolesRow, modlogRow, generalLogRow, ticketPingRolesRow, ticketViewRolesRow, ticketPingToggleRow],
       ephemeral: true
     });
   }

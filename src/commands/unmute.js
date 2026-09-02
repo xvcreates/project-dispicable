@@ -9,7 +9,7 @@ module.exports = {
     .setDescription('Remove mute role from a user.')
     .addUserOption(option => option.setName('user').setDescription('The user to unmute').setRequired(true)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const user = interaction.options.getUser('user');
 

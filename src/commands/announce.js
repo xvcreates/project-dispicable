@@ -8,7 +8,7 @@ module.exports = {
     .addChannelOption(option => option.setName('channel').setDescription('The channel to announce in').setRequired(true))
     .addStringOption(option => option.setName('message').setDescription('The announcement message').setRequired(true)),
   async execute(interaction) {
-    if (!memberHasCmds(interaction.member)) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
+    if (!(await memberHasCmds(interaction.member))) return interaction.reply({ content: 'You need the cmds role to use this command.', ephemeral: true });
 
     const channel = interaction.options.getChannel('channel');
     const message = interaction.options.getString('message');
