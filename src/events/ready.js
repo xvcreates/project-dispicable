@@ -1,4 +1,4 @@
-const { REST, Routes } = require('discord.js');
+const { REST, Routes, ActivityType } = require('discord.js');
 const path = require('path');
 const fs = require('fs');
 const db = require('../services/database');
@@ -8,6 +8,7 @@ module.exports = {
   once: true,
   async execute(client) {
     console.log(`Logged in as ${client.user.tag}`);
+    client.user.setActivity('Eating Mustard 24/7', { type: ActivityType.Playing });
 
     await db.initialize();
     console.log('Database initialized');
