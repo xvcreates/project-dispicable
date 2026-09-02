@@ -157,7 +157,7 @@ module.exports = {
 
     await interaction.reply({
       embeds: [settingsEmbed],
-      components: [rolesRow, modlogRow, generalLogRow, ticketPingRolesRow, ticketViewRolesRow, ticketPingToggleRow],
+      components: [rolesRow, modlogRow, ticketPingRolesRow, ticketViewRolesRow, ticketPingToggleRow],
       ephemeral: true
     });
   }
