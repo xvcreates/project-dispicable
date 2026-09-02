@@ -8,7 +8,10 @@ module.exports = {
   once: true,
   async execute(client) {
     console.log(`Logged in as ${client.user.tag}`);
-    client.user.setActivity('Eating Mustard 24/7', { type: ActivityType.Playing });
+    client.user.setActivity('Eating Mustard 24/7', {
+      type: ActivityType.Playing,
+      start: new Date()
+    });
 
     await db.initialize();
     console.log('Database initialized');
