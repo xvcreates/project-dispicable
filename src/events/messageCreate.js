@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('../services/database');
 const { triggerAutoMod } = require('../services/automod');
 const { memberHasCmds, getCmdsRole } = require('../utils/permissionUtils');
+const { takePendingEdit } = require('../services/messageEditor');
 
 const spamHistory = new Map();
 const protectedRoleNames = ['community director', 'owner', 'developer'];
@@ -16,6 +17,28 @@ module.exports = {
   name: 'messageCreate',
   async execute(message) {
     if (!message.guild || message.author.bot) return;
+
+    const pendingEdit = takePendingEdit(message.author.id, message.channel.id);
+    if (pendingEdit) {
+      try {
+        const target = await message.channel.messages.fetch(pendingEdit.messageId).catch(() => null);
+        if (!target || target.author.id !== message.client.user.id) {
+          await message.reply('That bot message could not be found or is no longer editable.');
+          return;
+        }
+
+        await target.edit({
+          content: message.content,
+          allowedMentions: { parse: ['users', 'roles', 'everyone'] }
+        });
+        await message.delete().catch(() => null);
+        await message.channel.send(`✅ ${message.author}, the bot message was edited successfully.`);
+      } catch (error) {
+        console.error('Normal-composer message edit failed:', error);
+        await message.reply('I could not edit that bot message. Check my permissions in this channel.');
+      }
+      return;
+    }
 
     const member = message.member;
     const guildSettings = await db.getGuildSettings(message.guild.id);

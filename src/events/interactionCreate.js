@@ -1,5 +1,6 @@
 const db = require('../services/database');
 const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { setPendingEdit, EDIT_WINDOW_MS } = require('../services/messageEditor');
 
 async function showEditModal(interaction, client, channelId, messageId, appendText = '') {
   const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
@@ -319,30 +320,11 @@ module.exports = {
         }
 
         const messageId = interaction.values[0];
-        const controls = [
-          new ActionRowBuilder().addComponents(
-            new RoleSelectMenuBuilder()
-              .setCustomId(`editmessage_role_${ownerId}_${channelId}_${messageId}`)
-              .setPlaceholder('Select a role to insert as a ping')
-              .setMinValues(1)
-              .setMaxValues(1)
-          ),
-          new ActionRowBuilder().addComponents(
-            new ChannelSelectMenuBuilder()
-              .setCustomId(`editmessage_channel_${ownerId}_${channelId}_${messageId}`)
-              .setPlaceholder('Select a channel to insert as a mention')
-              .addChannelTypes(ChannelType.GuildText)
-              .setMinValues(1)
-              .setMaxValues(1)
-          ),
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`editmessage_open_${ownerId}_${channelId}_${messageId}`)
-              .setLabel('Edit message')
-              .setStyle(ButtonStyle.Primary)
-          )
-        ];
-        await interaction.reply({ content: 'Choose a role or channel to insert, or open the editor directly:', components: controls, ephemeral: true });
+        setPendingEdit(ownerId, channelId, messageId);
+        await interaction.reply({
+          content: `Now type the replacement in ${interaction.channel}. You can use Discord's normal @role, @user, and #channel pickers. Your next message will replace the selected bot message. This expires in ${EDIT_WINDOW_MS / 60000} minutes.`,
+          ephemeral: true
+        });
         return;
       }
 
