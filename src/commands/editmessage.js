@@ -3,12 +3,14 @@ const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('disco
 const DISCORD_EPOCH = 1420070400000n;
 
 function dateRange(dateText) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) return null;
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateText);
+  if (!match) return null;
 
-  const start = new Date(`${dateText}T00:00:00.000Z`);
+  const [, day, month, year] = match;
+  const start = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
-  if (Number.isNaN(start.getTime())) return null;
+  if (Number.isNaN(start.getTime()) || start.getUTCDate() !== Number(day) || start.getUTCMonth() !== Number(month) - 1) return null;
 
   const toSnowflake = date => String((BigInt(date.getTime()) - DISCORD_EPOCH) << 22n);
   return { after: toSnowflake(start), before: toSnowflake(end) };
@@ -46,7 +48,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName('date')
-        .setDescription('Date in UTC, for example 2026-09-03')
+        .setDescription('Date in UTC, for example 03/09/2026')
         .setRequired(true)
     )
     .addStringOption(option =>
