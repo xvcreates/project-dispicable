@@ -32,7 +32,6 @@ module.exports = {
           allowedMentions: { parse: ['users', 'roles', 'everyone'] }
         });
         await message.delete().catch(() => null);
-        await message.channel.send(`✅ ${message.author}, the bot message was edited successfully.`);
       } catch (error) {
         console.error('Normal-composer message edit failed:', error);
         await message.reply('I could not edit that bot message. Check my permissions in this channel.');
