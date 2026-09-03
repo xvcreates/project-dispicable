@@ -1,5 +1,5 @@
-const { EmbedBuilder } = require('discord.js');
 const db = require('../services/database');
+const { createWelcomeEmbed } = require('../services/welcome');
 
 module.exports = {
   name: 'guildMemberAdd',
@@ -7,35 +7,18 @@ module.exports = {
     try {
       const settings = await db.getGuildSettings(member.guild.id);
       // A selected channel is the source of truth, including settings saved by older versions.
-      if (!settings.welcomeChannelId) return;
+      if (!settings.welcomeChannelId) {
+        console.log(`[welcome] No welcome channel configured for ${member.guild.name} (${member.guild.id})`);
+        return;
+      }
 
       const channel = await member.guild.channels.fetch(settings.welcomeChannelId).catch(() => null);
-      if (!channel || !channel.isTextBased()) return;
+      if (!channel || !channel.isTextBased()) {
+        console.error(`[welcome] Configured channel ${settings.welcomeChannelId} is unavailable in ${member.guild.name}`);
+        return;
+      }
 
-      const accountCreated = Math.floor(member.user.createdTimestamp / 1000);
-      const joinedAt = Math.floor((member.joinedTimestamp || Date.now()) / 1000);
-      const memberCount = member.guild.memberCount.toLocaleString();
-      const color = parseInt(settings.logColor || '0x0099ff');
-
-      const welcomeEmbed = new EmbedBuilder()
-        .setColor(Number.isNaN(color) ? 0x0099ff : color)
-        .setAuthor({
-          name: `${member.user.tag} joined the server`,
-          iconURL: member.user.displayAvatarURL({ size: 128 })
-        })
-        .setTitle(`Welcome to ${member.guild.name}!`)
-        .setDescription(`Say hello to ${member}. We are now **${memberCount}** members strong.`)
-        .setThumbnail(member.user.displayAvatarURL({ size: 256, extension: 'png' }))
-        .addFields(
-          { name: 'Username', value: `@${member.user.username}`, inline: true },
-          { name: 'User ID', value: member.id, inline: true },
-          { name: 'Account created', value: `<t:${accountCreated}:R>`, inline: true },
-          { name: 'Joined', value: `<t:${joinedAt}:R>`, inline: true }
-        )
-        .setFooter({ text: `Member #${member.guild.memberCount}` })
-        .setTimestamp();
-
-      await channel.send({ content: `Welcome ${member}!`, embeds: [welcomeEmbed] });
+      await channel.send({ content: `Welcome ${member}!`, embeds: [createWelcomeEmbed(member, settings.logColor)] });
     } catch (error) {
       console.error(`Failed to send welcome message in ${member.guild.name}:`, error);
     }

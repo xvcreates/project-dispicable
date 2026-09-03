@@ -62,6 +62,10 @@ module.exports = {
         .slice(0, 25)
         .map(commandName => ({ name: `/${commandName}`, value: commandName }));
 
+      if ('welcome'.includes(query) && choices.length < 25) {
+        choices.unshift({ name: '/welcome (join message)', value: 'welcome' });
+      }
+
       await interaction.respond(choices);
       return;
     }

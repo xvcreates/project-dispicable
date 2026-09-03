@@ -1,4 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const db = require('../services/database');
+const { createWelcomeEmbed } = require('../services/welcome');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -8,7 +10,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName('command')
-        .setDescription('Command to test')
+        .setDescription('Command to test, or welcome for the join message')
         .setRequired(true)
         .setAutocomplete(true)
     )
@@ -29,11 +31,24 @@ module.exports = {
     const channel = interaction.options.getChannel('channel');
     const command = interaction.client.commands.get(commandName);
 
-    if (!command) {
+    if (!command && commandName !== 'welcome') {
       return interaction.reply({ content: `I could not find a registered command named "/${commandName}".`, ephemeral: true });
     }
 
     try {
+      if (commandName === 'welcome') {
+        const settings = await db.getGuildSettings(interaction.guild.id);
+        const testMember = {
+          id: interaction.user.id,
+          guild: interaction.guild,
+          user: interaction.user,
+          joinedTimestamp: Date.now(),
+          toString: () => `${interaction.user}`
+        };
+        await channel.send({ content: `Welcome ${interaction.user}!`, embeds: [createWelcomeEmbed(testMember, settings.logColor)] });
+        return interaction.reply({ content: `Welcome test sent to ${channel}.`, ephemeral: true });
+      }
+
       const testEmbed = new EmbedBuilder()
         .setTitle('Bot Test')
         .setDescription(`The **/${commandName}** command is registered and ready to respond.`)
