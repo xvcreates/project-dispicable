@@ -5,6 +5,30 @@ module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
     if (interaction.isAutocomplete()) {
+      if (interaction.commandName === 'editmessage') {
+        const channel = interaction.options.getChannel('channel');
+        const dateText = interaction.options.getString('date');
+        const focused = interaction.options.getFocused().toLowerCase();
+        const editCommand = client.commands.get('editmessage');
+
+        if (!channel || !dateText || !editCommand) return interaction.respond([]);
+
+        try {
+          const messages = await editCommand.getBotMessages(channel, dateText, client.user.id);
+          const choices = (messages || [])
+            .filter(message => message.id.includes(focused) || message.content.toLowerCase().includes(focused))
+            .slice(0, 25)
+            .map(message => ({
+              name: `${message.content.slice(0, 80) || '[embed/empty message]'} (${message.id})`,
+              value: message.id
+            }));
+          return interaction.respond(choices);
+        } catch (error) {
+          console.error('Edit message autocomplete error:', error);
+          return interaction.respond([]);
+        }
+      }
+
       if (interaction.commandName !== 'test') return;
 
       const query = interaction.options.getString('command')?.toLowerCase() || '';
