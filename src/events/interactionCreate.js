@@ -346,15 +346,6 @@ module.exports = {
         return;
       }
 
-      if (interaction.customId.startsWith('editmessage_channel_')) {
-        const [, , ownerId, channelId, messageId] = interaction.customId.split('_');
-        if (interaction.user.id !== ownerId) {
-          return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
-        }
-        await showEditModal(interaction, client, channelId, messageId, `<#${interaction.values[0]}>`);
-        return;
-      }
-
       if (interaction.customId.startsWith('setup_ticket_ping_toggle') || interaction.customId.startsWith('settings_ticket_ping_toggle')) {
         const enabled = interaction.values[0] === 'true';
         try {
@@ -425,6 +416,15 @@ module.exports = {
     if (interaction.isChannelSelectMenu()) {
       const guild = interaction.guild;
       const selectedChannel = interaction.values.length > 0 ? interaction.values[0] : null;
+
+      if (interaction.customId.startsWith('editmessage_channel_')) {
+        const [, , ownerId, channelId, messageId] = interaction.customId.split('_');
+        if (interaction.user.id !== ownerId) {
+          return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
+        }
+        await showEditModal(interaction, client, channelId, messageId, `<#${selectedChannel}>`);
+        return;
+      }
 
       if (interaction.customId.startsWith('setup_modlog_channel') || interaction.customId.startsWith('settings_modlog_channel')) {
         try {

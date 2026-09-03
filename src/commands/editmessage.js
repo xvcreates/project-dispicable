@@ -50,8 +50,7 @@ module.exports = {
         .setName('date')
         .setDescription('Date in UTC, for example 03/09/2026')
         .setRequired(true)
-    )
-    ,
+      ),
 
   async execute(interaction) {
     if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
