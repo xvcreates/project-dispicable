@@ -6,7 +6,8 @@ module.exports = {
   async execute(member) {
     try {
       const settings = await db.getGuildSettings(member.guild.id);
-      if (!settings.welcomeEnabled || !settings.welcomeChannelId) return;
+      // A selected channel is the source of truth, including settings saved by older versions.
+      if (!settings.welcomeChannelId) return;
 
       const channel = await member.guild.channels.fetch(settings.welcomeChannelId).catch(() => null);
       if (!channel || !channel.isTextBased()) return;

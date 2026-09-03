@@ -295,15 +295,13 @@ module.exports = {
       if (interaction.customId.startsWith('setup_welcome_channel') || interaction.customId.startsWith('settings_welcome_channel')) {
         try {
           if (!selectedChannel) {
-            await db.updateWelcomeChannelId(guild.id, null);
-            await db.updateWelcomeEnabled(guild.id, false);
+            await db.updateWelcomeChannel(guild.id, null);
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Cleared').setDescription('Welcome channel has been unset').setColor(0x00ff00)],
               ephemeral: true
             });
           } else {
-            await db.updateWelcomeChannelId(guild.id, selectedChannel);
-            await db.updateWelcomeEnabled(guild.id, true);
+            await db.updateWelcomeChannel(guild.id, selectedChannel);
             const channel = await guild.channels.fetch(selectedChannel);
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Set').setDescription(`Welcome messages are now enabled in ${channel}`).setColor(0x00ff00)],

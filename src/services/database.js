@@ -301,6 +301,16 @@ module.exports = {
   updateWelcomeChannelId: async (guildId, channelId) => {
     await run('UPDATE guild_settings SET welcome_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
   },
+  updateWelcomeChannel: async (guildId, channelId) => {
+    await run(
+      `INSERT INTO guild_settings (guild_id, welcome_channel_id, welcome_enabled)
+       VALUES (?, ?, ?)
+       ON CONFLICT(guild_id) DO UPDATE SET
+         welcome_channel_id = excluded.welcome_channel_id,
+         welcome_enabled = excluded.welcome_enabled`,
+      [guildId, channelId, channelId ? 1 : 0]
+    );
+  },
   // Moderation Defaults
   updateDefaultMuteDuration: async (guildId, minutes) => {
     await run('UPDATE guild_settings SET default_mute_duration = ? WHERE guild_id = ?', [minutes, guildId]);
