@@ -35,6 +35,7 @@ module.exports = {
       } catch (error) {
         console.error('Normal-composer message edit failed:', error);
         await message.reply('I could not edit that bot message. Check my permissions in this channel.');
+      }
       return;
     }
 
