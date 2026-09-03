@@ -56,7 +56,10 @@ module.exports = {
       }
 
       try {
-        await message.edit(newMessage);
+        await message.edit({
+          content: newMessage,
+          allowedMentions: { parse: ['users', 'roles', 'everyone'] }
+        });
         await interaction.reply({ content: `Bot message edited successfully in ${channel}.`, ephemeral: true });
       } catch (error) {
         console.error('Edit message modal error:', error);
@@ -279,7 +282,7 @@ module.exports = {
           .setTitle('Edit Bot Message');
         const messageInput = new TextInputBuilder()
           .setCustomId('new_message')
-          .setLabel('Replacement message')
+          .setLabel('Replacement message (mentions supported)')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(true)
           .setMaxLength(2000);
