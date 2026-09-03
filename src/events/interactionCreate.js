@@ -1,5 +1,5 @@
 const db = require('../services/database');
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   name: 'interactionCreate',
@@ -38,6 +38,30 @@ module.exports = {
         .map(commandName => ({ name: `/${commandName}`, value: commandName }));
 
       await interaction.respond(choices);
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('editmessage_modal_')) {
+      const [, , ownerId, channelId, messageId] = interaction.customId.split('_');
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({ content: 'Only the administrator who selected this message can edit it.', ephemeral: true });
+      }
+
+      const newMessage = interaction.fields.getTextInputValue('new_message');
+      const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
+      const message = channel ? await channel.messages.fetch(messageId).catch(() => null) : null;
+
+      if (!message || message.author.id !== client.user.id) {
+        return interaction.reply({ content: 'That bot message could not be found or is no longer editable.', ephemeral: true });
+      }
+
+      try {
+        await message.edit(newMessage);
+        await interaction.reply({ content: `Bot message edited successfully in ${channel}.`, ephemeral: true });
+      } catch (error) {
+        console.error('Edit message modal error:', error);
+        await interaction.reply({ content: 'I could not edit that message. Check my permissions in the channel.', ephemeral: true });
+      }
       return;
     }
 
@@ -244,6 +268,26 @@ module.exports = {
     }
 
     if (interaction.isStringSelectMenu()) {
+      if (interaction.customId.startsWith('editmessage_select_')) {
+        const [, , ownerId, channelId] = interaction.customId.split('_');
+        if (interaction.user.id !== ownerId) {
+          return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
+        }
+
+        const modal = new ModalBuilder()
+          .setCustomId(`editmessage_modal_${ownerId}_${channelId}_${interaction.values[0]}`)
+          .setTitle('Edit Bot Message');
+        const messageInput = new TextInputBuilder()
+          .setCustomId('new_message')
+          .setLabel('Replacement message')
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(2000);
+        modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+        await interaction.showModal(modal);
+        return;
+      }
+
       if (interaction.customId.startsWith('setup_ticket_ping_toggle') || interaction.customId.startsWith('settings_ticket_ping_toggle')) {
         const enabled = interaction.values[0] === 'true';
         try {

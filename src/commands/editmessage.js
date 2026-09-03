@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
 const DISCORD_EPOCH = 1420070400000n;
 
@@ -51,20 +51,7 @@ module.exports = {
         .setDescription('Date in UTC, for example 03/09/2026')
         .setRequired(true)
     )
-    .addStringOption(option =>
-      option
-        .setName('message_id')
-        .setDescription('Choose a bot message found on that date')
-        .setRequired(true)
-        .setAutocomplete(true)
-    )
-    .addStringOption(option =>
-      option
-        .setName('new_message')
-        .setDescription('The replacement message text')
-        .setRequired(true)
-        .setMaxLength(2000)
-    ),
+    ,
 
   async execute(interaction) {
     if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -73,25 +60,32 @@ module.exports = {
 
     const channel = interaction.options.getChannel('channel');
     const dateText = interaction.options.getString('date');
-    const messageId = interaction.options.getString('message_id');
-    const newMessage = interaction.options.getString('new_message');
     const messages = await getBotMessages(channel, dateText, interaction.client.user.id);
 
     if (!messages) {
-      return interaction.reply({ content: 'Use a valid UTC date in YYYY-MM-DD format.', ephemeral: true });
+      return interaction.reply({ content: 'Use a valid UTC date in DD/MM/YYYY format.', ephemeral: true });
     }
 
-    const message = messages.get(messageId);
-    if (!message) {
-      return interaction.reply({ content: 'That bot message was not found on the selected date. Reopen autocomplete and choose a message from the list.', ephemeral: true });
+    if (!messages.size) {
+      return interaction.reply({ content: `I could not find any messages sent by the bot in ${channel} on ${dateText}.`, ephemeral: true });
     }
 
-    try {
-      await message.edit(newMessage);
-      await interaction.reply({ content: `Edited the bot message in ${channel}.`, ephemeral: true });
-    } catch (error) {
-      console.error('Edit message error:', error);
-      await interaction.reply({ content: 'I could not edit that message. Check that I have permission to manage my messages in the channel.', ephemeral: true });
-    }
+    const messageOptions = [...messages.values()].slice(0, 25).map(message => ({
+      label: (message.content || '[embed/empty message]').slice(0, 100),
+      description: `${new Date(message.createdTimestamp).toISOString().slice(11, 19)} UTC`,
+      value: message.id
+    }));
+    const messageSelect = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`editmessage_select_${interaction.user.id}_${channel.id}`)
+        .setPlaceholder('Select the bot message to edit')
+        .addOptions(messageOptions)
+    );
+
+    await interaction.reply({
+      content: `Bot messages found in ${channel} on **${dateText}**. Select one to edit it:`,
+      components: [messageSelect],
+      ephemeral: true
+    });
   }
 };
