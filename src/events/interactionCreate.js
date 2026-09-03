@@ -4,6 +4,19 @@ const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
+    if (interaction.isAutocomplete()) {
+      if (interaction.commandName !== 'test') return;
+
+      const query = interaction.options.getString('command')?.toLowerCase() || '';
+      const choices = [...client.commands.keys()]
+        .filter(commandName => commandName !== 'test' && commandName.includes(query))
+        .slice(0, 25)
+        .map(commandName => ({ name: `/${commandName}`, value: commandName }));
+
+      await interaction.respond(choices);
+      return;
+    }
+
     // Handle slash commands
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
