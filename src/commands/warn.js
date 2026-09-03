@@ -1,7 +1,8 @@
 const { SlashCommandBuilder } = require('discord.js');
 const db = require('../services/database');
 const { memberHasCmds } = require('../utils/permissionUtils');
-const { checkAndEscalateWarnings } = require('../services/moderation');
+const moderation = require('../services/moderation');
+const { checkAndEscalateWarnings } = moderation;
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,15 +20,13 @@ module.exports = {
 
     await db.addWarning(interaction.guild.id, target.id, reason, 'command');
     const warnings = await db.getWarnings(interaction.guild.id, target.id);
-    await db.logAction({
-      guildId: interaction.guild.id,
-      action: 'warn',
+    await moderation.logModerationAction(interaction.guild, 'warn', db, {
       targetId: target.id,
       targetTag: target.tag,
       executorId: interaction.user.id,
       executorTag: interaction.user.tag,
       reason,
-      metadata: { warningCount: warnings.length }
+      description: `Warning: ${target.tag} by ${interaction.user.tag} — ${reason}`
     });
 
     // Check escalation

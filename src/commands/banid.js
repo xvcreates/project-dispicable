@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../services/database');
+const moderation = require('../services/moderation');
 const { memberHasCmds } = require('../utils/permissionUtils');
 
 module.exports = {
@@ -30,23 +31,20 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle('You have been banned')
         .setDescription(`You were banned from **${interaction.guild.name}** for: ${reason}`)
-        .setColor(0xff0000)
+        .setColor(parseInt((await db.getGuildSettings(interaction.guild.id)).logColor || '0x0099ff'))
         .setTimestamp();
       await fetchedUser.send({ embeds: [embed] }).catch(() => null);
     } catch (err) {
       // ignore fetch/DM failures
     }
 
-    // Log to DB
-    await db.logAction({
-      guildId: interaction.guild.id,
-      action: 'ban',
+    await moderation.logModerationAction(interaction.guild, 'ban', db, {
       targetId: userId,
-      targetTag: fetchedUser ? fetchedUser.tag : null,
+      targetTag: fetchedUser ? fetchedUser.tag : `User ID ${userId}`,
       executorId: interaction.user.id,
       executorTag: interaction.user.tag,
       reason,
-      metadata: { via: 'banid' }
+      description: `Ban: User ID ${userId} by ${interaction.user.tag} — ${reason}`
     });
 
     await interaction.reply({ content: `Banned user ID ${userId}. DM attempted.`, ephemeral: true });

@@ -1,6 +1,16 @@
 const { EmbedBuilder } = require('discord.js');
+const db = require('./database');
 
-function getBotUseChannel(guild) {
+async function getBotUseChannel(guild) {
+  const settings = await db.getGuildSettings(guild.id);
+  if (settings.modlogChannelId) {
+    try {
+      return guild.channels.cache.get(settings.modlogChannelId) || await guild.channels.fetch(settings.modlogChannelId).catch(() => null);
+    } catch (error) {
+      // fall through to name-based fallback
+    }
+  }
+
   return guild.channels.cache.find(ch => ['bot-use', 'mod-logs', 'moderation', 'logs'].includes(ch.name.toLowerCase()) && ch.isTextBased()) || null;
 }
 
@@ -18,7 +28,8 @@ async function sendModerationDM(user, title, reason) {
 }
 
 async function logModerationAction(guild, action, logService, details) {
-  const botUseChannel = getBotUseChannel(guild);
+  const botUseChannel = await getBotUseChannel(guild);
+  const settings = await db.getGuildSettings(guild.id);
   await logService.logAction({
     guildId: guild.id,
     action,
@@ -35,10 +46,32 @@ async function logModerationAction(guild, action, logService, details) {
   const embed = new EmbedBuilder()
     .setTitle('Moderation Action')
     .setDescription(details.description)
-    .setColor(0xff0000)
+    .setColor(Number.isNaN(parseInt(settings.logColor || '0x0099ff')) ? 0x0099ff : parseInt(settings.logColor || '0x0099ff'))
     .setTimestamp();
 
   await botUseChannel.send({ embeds: [embed] }).catch(() => null);
+}
+
+async function logCommandUse(guild, commandName, executor, logService) {
+  const channel = await getBotUseChannel(guild);
+  if (!channel) return;
+
+  const settings = await db.getGuildSettings(guild.id);
+  const color = parseInt(settings.logColor || '0x0099ff');
+  const embed = new EmbedBuilder()
+    .setTitle('Command Used')
+    .setDescription(`${executor} used **/${commandName}**.`)
+    .setColor(Number.isNaN(color) ? 0x0099ff : color)
+    .setTimestamp();
+
+  await logService.logAction({
+    guildId: guild.id,
+    action: `command:${commandName}`,
+    executorId: executor.id,
+    executorTag: executor.tag,
+    reason: 'Command used'
+  });
+  await channel.send({ embeds: [embed] }).catch(() => null);
 }
 
 async function checkAndEscalateWarnings(guild, targetId, warningCount, logService, executor) {
@@ -83,6 +116,7 @@ module.exports = {
   getBotUseChannel,
   sendModerationDM,
   logModerationAction
-  , checkAndEscalateWarnings
+  , checkAndEscalateWarnings,
+  logCommandUse
 };
 

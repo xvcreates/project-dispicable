@@ -1,4 +1,5 @@
 const db = require('../services/database');
+const moderation = require('../services/moderation');
 const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { setPendingEdit, EDIT_WINDOW_MS } = require('../services/messageEditor');
 
@@ -101,6 +102,10 @@ module.exports = {
 
       try {
         await command.execute(interaction);
+        const specializedLoggingCommands = new Set(['ban', 'banid', 'kick', 'mute', 'softban', 'tempban', 'unban', 'unmute', 'warn']);
+        if (!specializedLoggingCommands.has(interaction.commandName)) {
+          await moderation.logCommandUse(interaction.guild, interaction.commandName, interaction.user, db);
+        }
       } catch (error) {
         console.error('Command execution error:', error);
         await interaction.reply({ content: 'There was an error while executing this command.', ephemeral: true });
