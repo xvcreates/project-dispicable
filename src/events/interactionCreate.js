@@ -1,5 +1,28 @@
 const db = require('../services/database');
-const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
+
+async function showEditModal(interaction, client, channelId, messageId, appendText = '') {
+  const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
+  const message = channel ? await channel.messages.fetch(messageId).catch(() => null) : null;
+  if (!message || message.author.id !== client.user.id) {
+    return interaction.reply({ content: 'That bot message could not be found or is no longer editable.', ephemeral: true });
+  }
+
+  const currentContent = message.content || '';
+  const defaultValue = `${currentContent}${appendText ? `${currentContent ? ' ' : ''}${appendText}` : ''}`.slice(0, 2000);
+  const modal = new ModalBuilder()
+    .setCustomId(`editmessage_modal_${interaction.user.id}_${channelId}_${messageId}`)
+    .setTitle('Edit Bot Message');
+  const messageInput = new TextInputBuilder()
+    .setCustomId('new_message')
+    .setLabel('Message (role/channel mentions supported)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setMaxLength(2000)
+    .setValue(defaultValue || '');
+  modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+  await interaction.showModal(modal);
+}
 
 module.exports = {
   name: 'interactionCreate',
@@ -87,6 +110,15 @@ module.exports = {
     if (interaction.isButton()) {
       const customId = interaction.customId;
       const guild = interaction.guild;
+
+      if (customId.startsWith('editmessage_open_')) {
+        const [, , ownerId, channelId, messageId] = customId.split('_');
+        if (interaction.user.id !== ownerId) {
+          return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
+        }
+        await showEditModal(interaction, client, channelId, messageId);
+        return;
+      }
 
       // Notification toggles
       if (customId.startsWith('setup_notify_warn_')) {
@@ -197,6 +229,15 @@ module.exports = {
     if (interaction.isRoleSelectMenu()) {
       const guild = interaction.guild;
 
+      if (interaction.customId.startsWith('editmessage_role_')) {
+        const [, , ownerId, channelId, messageId] = interaction.customId.split('_');
+        if (interaction.user.id !== ownerId) {
+          return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
+        }
+        await showEditModal(interaction, client, channelId, messageId, `<@&${interaction.values[0]}>`);
+        return;
+      }
+
       if (interaction.customId.startsWith('setup_cmds_role') || interaction.customId.startsWith('settings_cmds_role')) {
         const selectedRoles = interaction.values;
         try {
@@ -277,17 +318,40 @@ module.exports = {
           return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
         }
 
-        const modal = new ModalBuilder()
-          .setCustomId(`editmessage_modal_${ownerId}_${channelId}_${interaction.values[0]}`)
-          .setTitle('Edit Bot Message');
-        const messageInput = new TextInputBuilder()
-          .setCustomId('new_message')
-          .setLabel('Replacement message (mentions supported)')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(2000);
-        modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
-        await interaction.showModal(modal);
+        const messageId = interaction.values[0];
+        const controls = [
+          new ActionRowBuilder().addComponents(
+            new RoleSelectMenuBuilder()
+              .setCustomId(`editmessage_role_${ownerId}_${channelId}_${messageId}`)
+              .setPlaceholder('Select a role to insert as a ping')
+              .setMinValues(1)
+              .setMaxValues(1)
+          ),
+          new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+              .setCustomId(`editmessage_channel_${ownerId}_${channelId}_${messageId}`)
+              .setPlaceholder('Select a channel to insert as a mention')
+              .addChannelTypes(ChannelType.GuildText)
+              .setMinValues(1)
+              .setMaxValues(1)
+          ),
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`editmessage_open_${ownerId}_${channelId}_${messageId}`)
+              .setLabel('Edit message')
+              .setStyle(ButtonStyle.Primary)
+          )
+        ];
+        await interaction.reply({ content: 'Choose a role or channel to insert, or open the editor directly:', components: controls, ephemeral: true });
+        return;
+      }
+
+      if (interaction.customId.startsWith('editmessage_channel_')) {
+        const [, , ownerId, channelId, messageId] = interaction.customId.split('_');
+        if (interaction.user.id !== ownerId) {
+          return interaction.reply({ content: 'Only the administrator who opened this editor can use it.', ephemeral: true });
+        }
+        await showEditModal(interaction, client, channelId, messageId, `<#${interaction.values[0]}>`);
         return;
       }
 
