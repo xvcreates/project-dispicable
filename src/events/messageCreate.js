@@ -35,13 +35,21 @@ module.exports = {
       } catch (error) {
         console.error('Normal-composer message edit failed:', error);
         await message.reply('I could not edit that bot message. Check my permissions in this channel.');
-      }
       return;
     }
 
     const member = message.member;
     const guildSettings = await db.getGuildSettings(message.guild.id);
-    const isStaff = memberHasCmds(member);
+    const isStaff = await memberHasCmds(member);
+
+    if (await db.isDeleteFutureEnabled(message.guild.id, message.channel.id)) {
+      try {
+        await message.delete();
+      } catch (error) {
+        console.error('Failed to delete message in delete-future channel:', error);
+      }
+      return;
+    }
 
     if (message.channel.name === 'verify') {
       if (message.author.id !== message.client.user.id) {

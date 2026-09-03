@@ -133,6 +133,12 @@ async function initialize() {
     created_at TEXT NOT NULL,
     closed_at TEXT
   )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS delete_future_channels (
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    PRIMARY KEY (guild_id, channel_id)
+  )`);
 }
 
 async function getGuildSettings(guildId) {
@@ -333,6 +339,16 @@ module.exports = {
   },
   updateAuditLogChannel: async (guildId, channelId) => {
     await run('UPDATE guild_settings SET audit_log_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
+  },
+  enableDeleteFuture: async (guildId, channelId) => {
+    await run('INSERT OR IGNORE INTO delete_future_channels (guild_id, channel_id) VALUES (?, ?)', [guildId, channelId]);
+  },
+  disableDeleteFuture: async (guildId, channelId) => {
+    await run('DELETE FROM delete_future_channels WHERE guild_id = ? AND channel_id = ?', [guildId, channelId]);
+  },
+  isDeleteFutureEnabled: async (guildId, channelId) => {
+    const row = await get('SELECT 1 FROM delete_future_channels WHERE guild_id = ? AND channel_id = ?', [guildId, channelId]);
+    return Boolean(row);
   }
 };
 
