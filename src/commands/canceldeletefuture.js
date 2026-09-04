@@ -14,6 +14,7 @@ module.exports = {
     }
 
     await db.disableDeleteFuture(interaction.guild.id, interaction.channel.id);
+    console.log(`[deletefuture] Disabled in ${interaction.guild.name} / #${interaction.channel.name}`);
     await interaction.reply({ content: 'Future message deletion has been disabled in this channel.', ephemeral: true });
   }
 };

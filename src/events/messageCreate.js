@@ -45,9 +45,13 @@ module.exports = {
 
     if (await db.isDeleteFutureEnabled(message.guild.id, message.channel.id)) {
       try {
+        if (!message.deletable) {
+          console.error(`[deletefuture] Message ${message.id} is not deletable in #${message.channel.name}. Check Manage Messages permission.`);
+          return;
+        }
         await message.delete();
       } catch (error) {
-        console.error('Failed to delete message in delete-future channel:', error);
+        console.error(`[deletefuture] Failed to delete message ${message.id} in #${message.channel.name}:`, error);
       }
       return;
     }
