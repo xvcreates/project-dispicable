@@ -5,11 +5,29 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('disableping')
     .setDescription('Choose roles whose members cannot be directly pinged.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addRoleOption(option => option.setName('role').setDescription('Add one role that cannot be pinged').setRequired(false))
+    .addBooleanOption(option => option.setName('clear').setDescription('Clear all disabled-ping roles').setRequired(false)),
 
   async execute(interaction) {
     if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: 'Only administrators can configure disabled-ping roles.', ephemeral: true });
+    }
+
+    const selectedRole = interaction.options.getRole('role');
+    const clear = interaction.options.getBoolean('clear') || false;
+    if (selectedRole || clear) {
+      const currentRoles = (await db.getGuildSettings(interaction.guild.id)).disabledPingRoleIds || [];
+      const updatedRoles = clear
+        ? []
+        : [...new Set([...currentRoles, selectedRole.id])];
+      await db.updateDisabledPingRoles(interaction.guild.id, updatedRoles);
+      return interaction.reply({
+        content: clear
+          ? 'Disabled-ping roles cleared.'
+          : `Added ${selectedRole} to the disabled-ping roles.`,
+        ephemeral: true
+      });
     }
 
     const settings = await db.getGuildSettings(interaction.guild.id);
