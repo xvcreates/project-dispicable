@@ -38,7 +38,9 @@ module.exports = {
         .setPlaceholder('Select roles that cannot be pinged')
         .addOptions(roleOptions)
         .setMinValues(1)
-        .setMaxValues(10),
+        .setMaxValues(Math.min(roleOptions.length, 10))
+    );
+    const clearRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('disableping_clear')
         .setLabel('Clear')
@@ -47,7 +49,7 @@ module.exports = {
 
     await interaction.reply({
       embeds: [new EmbedBuilder().setTitle('🔕 Disabled Ping Roles').setDescription(description).setColor(0xff9900)],
-      components: [roleSelector],
+      components: [roleSelector, clearRow],
       ephemeral: true
     });
   }
