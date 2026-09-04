@@ -56,18 +56,19 @@ module.exports = {
       return;
     }
 
-    const disabledPingRoleIds = guildSettings.disabledPingRoleIds || [];
-    if (disabledPingRoleIds.length && (message.mentions.users.size || message.mentions.roles.size)) {
+    const disabledPingRoleIds = (guildSettings.disabledPingRoleIds || []).map(String);
+    if (disabledPingRoleIds.length && message.mentions.users.size) {
       const mentionedMembers = await Promise.all(
-        [...message.mentions.users.values()].map(user => message.guild.members.fetch(user.id).catch(() => null))
+        [...message.mentions.users.values()].map(async user => {
+          const resolvedMember = message.mentions.members?.get(user.id);
+          return resolvedMember || message.guild.members.cache.get(user.id) || message.guild.members.fetch(user.id).catch(() => null);
+        })
       );
-      const mentionedDisabledRole = [...message.mentions.roles.keys()].some(roleId =>
-        disabledPingRoleIds.includes(roleId)
-      );
-      const targetsDisabledPing = mentionedDisabledRole || mentionedMembers.some(member =>
-        member && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
+      const targetsDisabledPing = mentionedMembers.some(member =>
+        member?.roles?.cache && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
       );
       if (targetsDisabledPing) {
+        console.log(`[disableping] Blocked a ping to a member with a disabled-ping role in ${message.guild.name}`);
         const strikeCount = await db.addDisabledPingStrike(message.guild.id, message.author.id);
         try {
           await message.delete();
