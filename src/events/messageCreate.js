@@ -68,13 +68,27 @@ module.exports = {
         member && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
       );
       if (targetsDisabledPing) {
+        const strikeCount = await db.addDisabledPingStrike(message.guild.id, message.author.id);
         try {
           await message.delete();
           await message.author.send(
-            `Your message in **${message.guild.name}** was removed because it attempted to ping a role or member with disabled pings.`
+            `Your message in **${message.guild.name}** was removed because it attempted to ping a role or member with disabled pings. Strike ${strikeCount}/3.`
           ).catch(() => null);
         } catch (error) {
           console.error('Failed to delete disabled ping:', error);
+        }
+        if (strikeCount % 3 === 0) {
+          const reason = `Automatic warning after ${strikeCount} disabled-ping violations`;
+          await db.addWarning(message.guild.id, message.author.id, reason, 'disabled-ping');
+          await db.logAction({
+            guildId: message.guild.id,
+            action: 'warn',
+            targetId: message.author.id,
+            targetTag: message.author.tag,
+            reason,
+            metadata: { disabledPingStrikeCount: strikeCount }
+          });
+          console.log(`[disableping] Warned ${message.author.tag} after ${strikeCount} violations in ${message.guild.name}`);
         }
         return;
       }

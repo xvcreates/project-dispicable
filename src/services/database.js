@@ -140,6 +140,13 @@ async function initialize() {
     channel_id TEXT NOT NULL,
     PRIMARY KEY (guild_id, channel_id)
   )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS disabled_ping_strikes (
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    strike_count INTEGER DEFAULT 0,
+    PRIMARY KEY (guild_id, user_id)
+  )`);
 }
 
 async function getGuildSettings(guildId) {
@@ -359,6 +366,16 @@ module.exports = {
   isDeleteFutureEnabled: async (guildId, channelId) => {
     const row = await get('SELECT 1 FROM delete_future_channels WHERE guild_id = ? AND channel_id = ?', [guildId, channelId]);
     return Boolean(row);
+  },
+  addDisabledPingStrike: async (guildId, userId) => {
+    await run(
+      `INSERT INTO disabled_ping_strikes (guild_id, user_id, strike_count)
+       VALUES (?, ?, 1)
+       ON CONFLICT(guild_id, user_id) DO UPDATE SET strike_count = strike_count + 1`,
+      [guildId, userId]
+    );
+    const row = await get('SELECT strike_count FROM disabled_ping_strikes WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
+    return row?.strike_count || 0;
   }
 };
 
