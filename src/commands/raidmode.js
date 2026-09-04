@@ -16,9 +16,8 @@ module.exports = {
     const settings = await db.getGuildSettings(guildId);
     const enabled = !settings.raidMode;
 
-    await db.setRaidMode(guildId, enabled);
     await applyRaidMode(interaction.guild, enabled);
 
-    await interaction.reply({ content: enabled ? 'Raid mode enabled.' : 'Raid mode disabled.', ephemeral: false });
+    await interaction.reply({ content: enabled ? 'Raid mode enabled. Non-staff messages will be removed.' : 'Raid mode disabled.', ephemeral: true });
   }
 };

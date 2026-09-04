@@ -39,12 +39,26 @@ async function triggerAutoMod(message, reason) {
 }
 
 async function applyRaidMode(guild, enabled) {
-  const textChannels = guild.channels.cache.filter(ch => ch.isTextBased());
+  const settings = await db.getGuildSettings(guild.id);
+  const commandRoleIds = settings.cmdsRoleIds || [];
+  const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
+  const textChannels = guild.channels.cache.filter(channel => channel.isTextBased() && channel.permissionOverwrites);
+
   for (const [, channel] of textChannels) {
     try {
-      await channel.permissionOverwrites.edit(guild.roles.everyone, enabled ? { SendMessages: false } : { SendMessages: null });
+      await channel.permissionOverwrites.edit(guild.roles.everyone, {
+        SendMessages: enabled ? false : null
+      });
+
+      if (enabled && botMember) {
+        await channel.permissionOverwrites.edit(botMember, { SendMessages: true });
+        for (const roleId of commandRoleIds) {
+          const role = guild.roles.cache.get(roleId);
+          if (role) await channel.permissionOverwrites.edit(role, { SendMessages: true });
+        }
+      }
     } catch (error) {
-      console.error(`Could not update permissions for ${channel.name}:`, error);
+      console.error(`Could not update raid mode permissions for ${channel.name}:`, error);
     }
   }
 

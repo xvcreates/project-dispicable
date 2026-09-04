@@ -56,6 +56,16 @@ module.exports = {
       return;
     }
 
+    if (guildSettings.raidMode && !isStaff) {
+      try {
+        await message.delete();
+        await message.author.send(`Messages are temporarily disabled in **${message.guild.name}** because raid mode is active.`).catch(() => null);
+      } catch (error) {
+        console.error('Failed to enforce raid mode:', error);
+      }
+      return;
+    }
+
     const disabledPingRoleIds = (guildSettings.disabledPingRoleIds || []).map(String);
     if (disabledPingRoleIds.length && message.mentions.users.size) {
       const mentionedMembers = await Promise.all(
@@ -132,11 +142,6 @@ module.exports = {
       } catch (error) {
         console.error('Failed to delete partners message:', error);
       }
-      return;
-    }
-
-    if (guildSettings.raidMode && !isStaff) {
-      await triggerAutoMod(message, 'Raid mode active');
       return;
     }
 
