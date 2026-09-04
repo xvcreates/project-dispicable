@@ -6,8 +6,8 @@ module.exports = {
     .setDescription('Display all available commands.'),
   async execute(interaction) {
     const embed = new EmbedBuilder()
-      .setTitle('🔧 Racing Nation Bot - Commands')
-      .setDescription('Available commands for the Racing Nation community.')
+      .setTitle('🔧 MUSTARD - Commands')
+      .setDescription('Available commands for this server.')
       .setColor(0xff6600)
       .addFields(
         {

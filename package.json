@@ -1,7 +1,7 @@
 {
   "name": "motorsport-bot",
   "version": "2.0.0",
-  "description": "A modular Discord bot for Racing Nation with advanced moderation and community tools",
+  "description": "MUSTARD is a multi-server Discord moderation and community bot",
   "main": "src/index.js",
   "scripts": {
     "start": "node bot.js",
