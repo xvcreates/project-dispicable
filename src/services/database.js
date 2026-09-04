@@ -376,6 +376,9 @@ module.exports = {
     );
     const row = await get('SELECT strike_count FROM disabled_ping_strikes WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
     return row?.strike_count || 0;
+  },
+  resetDisabledPingStrikes: async (guildId, userId) => {
+    await run('DELETE FROM disabled_ping_strikes WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
   }
 };
 
