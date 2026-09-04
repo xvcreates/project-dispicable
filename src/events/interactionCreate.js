@@ -348,6 +348,20 @@ module.exports = {
     }
 
     if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === 'disableping_roles') {
+        try {
+          await db.updateDisabledPingRoles(interaction.guild.id, interaction.values);
+          await interaction.reply({
+            embeds: [new EmbedBuilder().setTitle('✅ Disabled Ping Roles Updated').setDescription(`Direct pings are now blocked for members with ${interaction.values.map(roleId => `<@&${roleId}>`).join(', ')}.`).setColor(0x00ff00)],
+            ephemeral: true
+          });
+        } catch (error) {
+          console.error('Disabled ping role update failed:', error);
+          await interaction.reply({ content: 'I could not save the disabled-ping roles.', ephemeral: true });
+        }
+        return;
+      }
+
       if (interaction.customId.startsWith('editmessage_select_')) {
         const [, , ownerId, channelId] = interaction.customId.split('_');
         if (interaction.user.id !== ownerId) {
