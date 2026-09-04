@@ -5,6 +5,7 @@ module.exports = {
   name: 'guildMemberAdd',
   async execute(member) {
     try {
+      console.log(`[welcome] Join event received for ${member.user.tag} in ${member.guild.name} (${member.guild.id})`);
       const settings = await db.getGuildSettings(member.guild.id);
       // A selected channel is the source of truth, including settings saved by older versions.
       if (!settings.welcomeChannelId) {

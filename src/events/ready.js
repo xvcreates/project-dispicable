@@ -8,6 +8,7 @@ module.exports = {
   once: true,
   async execute(client) {
     console.log(`Logged in as ${client.user.tag}`);
+    console.log('Guild member join events enabled: GuildMembers intent requested.');
     client.user.setActivity('Eating Mustard 24/7', {
       type: ActivityType.Playing,
       start: new Date()
