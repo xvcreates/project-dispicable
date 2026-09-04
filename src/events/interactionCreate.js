@@ -121,6 +121,15 @@ module.exports = {
       const customId = interaction.customId;
       const guild = interaction.guild;
 
+      if (customId === 'disableping_clear') {
+        await db.updateDisabledPingRoles(guild.id, []);
+        await interaction.reply({
+          embeds: [new EmbedBuilder().setTitle('✅ Disabled Ping Roles Cleared').setDescription('Direct pings are allowed again.').setColor(0x00ff00)],
+          ephemeral: true
+        });
+        return;
+      }
+
       if (customId.startsWith('editmessage_open_')) {
         const [, , ownerId, channelId, messageId] = customId.split('_');
         if (interaction.user.id !== ownerId) {

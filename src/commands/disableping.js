@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
 
 module.exports = {
@@ -22,8 +22,12 @@ module.exports = {
       new RoleSelectMenuBuilder()
         .setCustomId('disableping_roles')
         .setPlaceholder('Select roles that cannot be pinged')
-        .setMinValues(0)
-        .setMaxValues(10)
+        .setMinValues(1)
+        .setMaxValues(10),
+      new ButtonBuilder()
+        .setCustomId('disableping_clear')
+        .setLabel('Clear')
+        .setStyle(ButtonStyle.Danger)
     );
 
     await interaction.reply({
