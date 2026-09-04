@@ -44,6 +44,7 @@ async function ensureGuildSettingsColumns() {
 
   const columnDefinitions = [
     ['cmds_role_id', 'TEXT'],
+    ['disabled_ping_role_ids', 'TEXT'],
     ['modlog_channel_id', 'TEXT'],
     ['general_log_channel_id', 'TEXT'],
     ['log_color', 'TEXT DEFAULT 0x0099ff'],
@@ -166,6 +167,10 @@ async function getGuildSettings(guildId) {
       blockInvites: Boolean(row.block_invites),
       cmdsRoleId: cmdRoleIds[0] || null,
       cmdsRoleIds: cmdRoleIds,
+      disabledPingRoleIds: (row.disabled_ping_role_ids || '')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean),
       modlogChannelId: row.modlog_channel_id,
       generalLogChannelId: row.general_log_channel_id,
       logColor: row.log_color || '0x0099ff',
@@ -251,6 +256,11 @@ module.exports = {
     const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
     const value = normalized.length ? normalized.join(',') : null;
     await run('UPDATE guild_settings SET cmds_role_id = ? WHERE guild_id = ?', [value, guildId]);
+  },
+  updateDisabledPingRoles: async (guildId, roleIds) => {
+    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
+    const value = normalized.length ? normalized.join(',') : null;
+    await run('UPDATE guild_settings SET disabled_ping_role_ids = ? WHERE guild_id = ?', [value, guildId]);
   },
   updateModlogChannel: async (guildId, channelId) => {
     await run('UPDATE guild_settings SET modlog_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);

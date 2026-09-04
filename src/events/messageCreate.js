@@ -52,6 +52,24 @@ module.exports = {
       return;
     }
 
+    const disabledPingRoleIds = guildSettings.disabledPingRoleIds || [];
+    if (disabledPingRoleIds.length && message.mentions.users.size) {
+      const mentionedMembers = await Promise.all(
+        [...message.mentions.users.values()].map(user => message.guild.members.fetch(user.id).catch(() => null))
+      );
+      const targetsDisabledPing = mentionedMembers.some(member =>
+        member && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
+      );
+      if (targetsDisabledPing) {
+        try {
+          await message.delete();
+        } catch (error) {
+          console.error('Failed to delete disabled ping:', error);
+        }
+        return;
+      }
+    }
+
     if (message.channel.name === 'verify') {
       if (message.author.id !== message.client.user.id) {
         try {
