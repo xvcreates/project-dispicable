@@ -57,16 +57,22 @@ module.exports = {
     }
 
     const disabledPingRoleIds = guildSettings.disabledPingRoleIds || [];
-    if (disabledPingRoleIds.length && message.mentions.users.size) {
+    if (disabledPingRoleIds.length && (message.mentions.users.size || message.mentions.roles.size)) {
       const mentionedMembers = await Promise.all(
         [...message.mentions.users.values()].map(user => message.guild.members.fetch(user.id).catch(() => null))
       );
-      const targetsDisabledPing = mentionedMembers.some(member =>
+      const mentionedDisabledRole = [...message.mentions.roles.keys()].some(roleId =>
+        disabledPingRoleIds.includes(roleId)
+      );
+      const targetsDisabledPing = mentionedDisabledRole || mentionedMembers.some(member =>
         member && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
       );
       if (targetsDisabledPing) {
         try {
           await message.delete();
+          await message.author.send(
+            `Your message in **${message.guild.name}** was removed because it attempted to ping a role or member with disabled pings.`
+          ).catch(() => null);
         } catch (error) {
           console.error('Failed to delete disabled ping:', error);
         }
