@@ -74,4 +74,5 @@ MUSTARD is the new modular Discord bot for your community, built for advanced mo
 - Create a role called `cmds` for staff command access
 - Create a `bot-use` or `mod-logs` channel for moderation logs
 - The new build uses SQLite and creates `src/data/bot.sqlite`
+- On Render, set `DATABASE_PATH` to a file on a mounted persistent disk, such as `/var/data/mustard.sqlite`, or settings will be lost when the service restarts
 - The old bot remains available in case you need it
