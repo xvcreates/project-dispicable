@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
-const db = require('../services/database');
+const { getConfig, updateConfig } = require('../services/discordConfig');
 const { memberHasCmds } = require('../utils/permissionUtils');
 
 module.exports = {
@@ -24,7 +24,10 @@ module.exports = {
       return interaction.reply({ content: `I need Manage Messages permission in ${channel}.`, ephemeral: true });
     }
 
-    await db.enableDeleteFuture(interaction.guild.id, channel.id);
+    const config = await getConfig(interaction.guild);
+    await updateConfig(interaction.guild, {
+      autodeleteChannelIds: [...new Set([...(config.autodeleteChannelIds || []), channel.id])]
+    });
     await interaction.reply({ content: `Auto-delete enabled in ${channel}. Bot messages will not be deleted.`, ephemeral: true });
   }
 };
