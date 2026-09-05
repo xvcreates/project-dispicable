@@ -3,7 +3,6 @@ const db = require('../services/database');
 const { triggerAutoMod } = require('../services/automod');
 const { memberHasCmds, getCmdsRole } = require('../utils/permissionUtils');
 const { takePendingEdit } = require('../services/messageEditor');
-const { getConfig } = require('../services/discordConfig');
 
 const spamHistory = new Map();
 const protectedRoleNames = ['community director', 'owner', 'developer'];
@@ -42,10 +41,9 @@ module.exports = {
 
     const member = message.member;
     const guildSettings = await db.getGuildSettings(message.guild.id);
-    const discordConfig = await getConfig(message.guild);
     const isStaff = await memberHasCmds(member);
 
-    if ((discordConfig.autodeleteChannelIds || []).includes(message.channel.id)) {
+    if (await db.isDeleteFutureEnabled(message.guild.id, message.channel.id)) {
       try {
         if (!message.deletable) {
           console.error(`[deletefuture] Message ${message.id} is not deletable in #${message.channel.name}. Check Manage Messages permission.`);
@@ -68,7 +66,7 @@ module.exports = {
       return;
     }
 
-    const disabledPingRoleIds = (discordConfig.disabledPingRoleIds || []).map(String);
+    const disabledPingRoleIds = (guildSettings.disabledPingRoleIds || []).map(String);
     if (disabledPingRoleIds.length && message.mentions.users.size) {
       const mentionedMembers = await Promise.all(
         [...message.mentions.users.values()].map(async user => {

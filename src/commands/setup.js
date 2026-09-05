@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
-const { getConfig } = require('../services/discordConfig');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -15,8 +14,7 @@ module.exports = {
 
     const guild = interaction.guild;
     const settings = await db.getGuildSettings(guild.id);
-    const discordConfig = await getConfig(guild);
-    const welcomeChannelId = discordConfig.welcomeChannelId || settings.welcomeChannelId;
+    const welcomeChannelId = settings.welcomeChannelId;
     const configuredRoleNames = await Promise.all((settings.cmdsRoleIds || []).map(async roleId => {
       const role = await guild.roles.fetch(roleId).catch(() => null);
       return role?.name || roleId;

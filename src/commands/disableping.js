@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
-const { getConfig, updateConfig } = require('../services/discordConfig');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -18,11 +17,11 @@ module.exports = {
     const selectedRole = interaction.options.getRole('role');
     const clear = interaction.options.getBoolean('clear') || false;
     if (selectedRole || clear) {
-      const currentRoles = (await getConfig(interaction.guild)).disabledPingRoleIds || [];
+      const currentRoles = (await db.getGuildSettings(interaction.guild.id)).disabledPingRoleIds || [];
       const updatedRoles = clear
         ? []
         : [...new Set([...currentRoles, selectedRole.id])];
-      await updateConfig(interaction.guild, { disabledPingRoleIds: updatedRoles });
+      await db.updateDisabledPingRoles(interaction.guild.id, updatedRoles);
       return interaction.reply({
         content: clear
           ? 'Disabled-ping roles cleared.'
@@ -31,8 +30,8 @@ module.exports = {
       });
     }
 
-    const config = await getConfig(interaction.guild);
-    const roles = config.disabledPingRoleIds || [];
+    const settings = await db.getGuildSettings(interaction.guild.id);
+    const roles = settings.disabledPingRoleIds || [];
     const description = roles.length
       ? `Members with these roles cannot be directly pinged:\n${roles.map(roleId => `<@&${roleId}>`).join(', ')}`
       : 'No disabled-ping roles are configured.';

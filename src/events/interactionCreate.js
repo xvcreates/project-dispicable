@@ -2,7 +2,6 @@ const db = require('../services/database');
 const moderation = require('../services/moderation');
 const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { setPendingEdit, EDIT_WINDOW_MS } = require('../services/messageEditor');
-const { updateConfig } = require('../services/discordConfig');
 
 async function showEditModal(interaction, client, channelId, messageId, appendText = '') {
   const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
@@ -123,7 +122,7 @@ module.exports = {
       const guild = interaction.guild;
 
       if (customId === 'disableping_clear') {
-        await updateConfig(guild, { disabledPingRoleIds: [] });
+        await db.updateDisabledPingRoles(guild.id, []);
         await interaction.reply({
           embeds: [new EmbedBuilder().setTitle('✅ Disabled Ping Roles Cleared').setDescription('Direct pings are allowed again.').setColor(0x00ff00)],
           ephemeral: true
@@ -334,7 +333,7 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId === 'disableping_roles') {
         try {
-          await updateConfig(interaction.guild, { disabledPingRoleIds: interaction.values });
+          await db.updateDisabledPingRoles(interaction.guild.id, interaction.values);
           await interaction.reply({
             embeds: [new EmbedBuilder().setTitle('✅ Disabled Ping Roles Updated').setDescription(`Direct pings are now blocked for members with ${interaction.values.map(roleId => `<@&${roleId}>`).join(', ')}.`).setColor(0x00ff00)],
             ephemeral: true
@@ -459,14 +458,12 @@ module.exports = {
         try {
           if (!selectedChannel) {
             await db.updateWelcomeChannel(guild.id, null);
-            await updateConfig(guild, { welcomeChannelId: null });
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Cleared').setDescription('Welcome channel has been unset').setColor(0x00ff00)],
               ephemeral: true
             });
           } else {
             await db.updateWelcomeChannel(guild.id, selectedChannel);
-            await updateConfig(guild, { welcomeChannelId: selectedChannel });
             const channel = await guild.channels.fetch(selectedChannel);
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Set').setDescription(`Welcome messages are now enabled in ${channel}`).setColor(0x00ff00)],

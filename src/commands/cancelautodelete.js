@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
-const { getConfig, updateConfig } = require('../services/discordConfig');
 const { memberHasCmds } = require('../utils/permissionUtils');
 
 module.exports = {
@@ -20,10 +19,7 @@ module.exports = {
     }
 
     const channel = interaction.options.getChannel('channel');
-    const config = await getConfig(interaction.guild);
-    await updateConfig(interaction.guild, {
-      autodeleteChannelIds: (config.autodeleteChannelIds || []).filter(channelId => channelId !== channel.id)
-    });
+    await db.disableDeleteFuture(interaction.guild.id, channel.id);
     await interaction.reply({ content: `Auto-delete disabled in ${channel}.`, ephemeral: true });
   }
 };

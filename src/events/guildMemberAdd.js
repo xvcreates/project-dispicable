@@ -1,6 +1,5 @@
 const db = require('../services/database');
 const { createWelcomeEmbed } = require('../services/welcome');
-const { getConfig } = require('../services/discordConfig');
 
 module.exports = {
   name: 'guildMemberAdd',
@@ -8,8 +7,7 @@ module.exports = {
     try {
       console.log(`[welcome] Join event received for ${member.user.tag} in ${member.guild.name} (${member.guild.id})`);
       const settings = await db.getGuildSettings(member.guild.id);
-      const discordConfig = await getConfig(member.guild);
-      const welcomeChannelId = discordConfig.welcomeChannelId || settings.welcomeChannelId;
+      const welcomeChannelId = settings.welcomeChannelId;
       // A selected channel is the source of truth, including settings saved by older versions.
       if (!welcomeChannelId) {
         console.log(`[welcome] No welcome channel configured for ${member.guild.name} (${member.guild.id})`);
