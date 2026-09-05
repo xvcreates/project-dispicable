@@ -66,56 +66,72 @@ module.exports = {
       return;
     }
 
-    const disabledPingRoleIds = (guildSettings.disabledPingRoleIds || []).map(String);
-    if (disabledPingRoleIds.length && message.mentions.users.size) {
-      const mentionedMembers = await Promise.all(
-        [...message.mentions.users.values()].map(async user => {
-          const resolvedMember = message.mentions.members?.get(user.id);
-          return resolvedMember || message.guild.members.cache.get(user.id) || message.guild.members.fetch(user.id).catch(() => null);
-        })
-      );
-      const targetsDisabledPing = mentionedMembers.some(member =>
-        member?.roles?.cache && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
-      );
-      if (targetsDisabledPing) {
-        console.log(`[disableping] Blocked a ping to a member with a disabled-ping role in ${message.guild.name}`);
-        const strikeCount = await db.addDisabledPingStrike(message.guild.id, message.author.id);
-        try {
-          await message.delete();
-          await message.author.send(
-            `Your message in **${message.guild.name}** was removed because it attempted to ping a role or member with disabled pings. Strike ${strikeCount}/3.`
-          ).catch(() => null);
-        } catch (error) {
-          console.error('Failed to delete disabled ping:', error);
-        }
-        if (strikeCount >= 3) {
-          const reason = `Automatic warning after ${strikeCount} disabled-ping violations`;
-          try {
-            await db.addWarning(message.guild.id, message.author.id, reason, 'disabled-ping');
-            await db.logAction({
-              guildId: message.guild.id,
-              action: 'warn',
-              targetId: message.author.id,
-              targetTag: message.author.tag,
-              reason,
-              metadata: { disabledPingStrikeCount: strikeCount }
-            });
-            await message.author.send(
-              `You have received a warning in **${message.guild.name}** for reaching ${strikeCount} disabled-ping violations.`
-            ).catch(() => null);
-            console.log(`[disableping] Warned ${message.author.tag} after ${strikeCount} violations in ${message.guild.name}`);
-          } catch (error) {
-            console.error('[disableping] Failed to record automatic warning:', error);
-          } finally {
-            await db.resetDisabledPingStrikes(message.guild.id, message.author.id).catch(error => {
-              console.error('[disableping] Failed to reset strike count:', error);
-            });
-          }
-        }
-        return;
-      }
-    }
+   const disabledPingRoleIds = (guildSettings.disabledPingRoleIds || []).map(String);
+if (disabledPingRoleIds.length && message.mentions.users.size) {
+  // Discord auto-adds the replied-to user to message.mentions.users even
+  // without a real @mention in the text. Only treat it as a real ping if
+  // that user is ALSO explicitly written as <@id> in the message content.
+  const repliedUserId = message.mentions.repliedUser?.id ?? null;
+  const explicitMentionIds = new Set(
+    [...message.content.matchAll(/<@!?(\d+)>/g)].map(m => m[1])
+  );
 
+  const realPingedUsers = [...message.mentions.users.values()].filter(user => {
+    if (user.id === repliedUserId && !explicitMentionIds.has(user.id)) {
+      return false; // it's just a reply, not a real @mention
+    }
+    return true;
+  });
+
+  if (realPingedUsers.length) {
+    const mentionedMembers = await Promise.all(
+      realPingedUsers.map(async user => {
+        const resolvedMember = message.mentions.members?.get(user.id);
+        return resolvedMember || message.guild.members.cache.get(user.id) || message.guild.members.fetch(user.id).catch(() => null);
+      })
+    );
+    const targetsDisabledPing = mentionedMembers.some(member =>
+      member?.roles?.cache && disabledPingRoleIds.some(roleId => member.roles.cache.has(roleId))
+    );
+    if (targetsDisabledPing) {
+      console.log(`[disableping] Blocked a ping to a member with a disabled-ping role in ${message.guild.name}`);
+      const strikeCount = await db.addDisabledPingStrike(message.guild.id, message.author.id);
+      try {
+        await message.delete();
+        await message.author.send(
+          `Your message in **${message.guild.name}** was removed because it attempted to ping a role or member with disabled pings. Strike ${strikeCount}/3.`
+        ).catch(() => null);
+      } catch (error) {
+        console.error('Failed to delete disabled ping:', error);
+      }
+      if (strikeCount >= 3) {
+        const reason = `Automatic warning after ${strikeCount} disabled-ping violations`;
+        try {
+          await db.addWarning(message.guild.id, message.author.id, reason, 'disabled-ping');
+          await db.logAction({
+            guildId: message.guild.id,
+            action: 'warn',
+            targetId: message.author.id,
+            targetTag: message.author.tag,
+            reason,
+            metadata: { disabledPingStrikeCount: strikeCount }
+          });
+          await message.author.send(
+            `You have received a warning in **${message.guild.name}** for reaching ${strikeCount} disabled-ping violations.`
+          ).catch(() => null);
+          console.log(`[disableping] Warned ${message.author.tag} after ${strikeCount} violations in ${message.guild.name}`);
+        } catch (error) {
+          console.error('[disableping] Failed to record automatic warning:', error);
+        } finally {
+          await db.resetDisabledPingStrikes(message.guild.id, message.author.id).catch(error => {
+            console.error('[disableping] Failed to reset strike count:', error);
+          });
+        }
+      }
+      return;
+    }
+  }
+}
     if (message.channel.name === 'verify') {
       if (message.author.id !== message.client.user.id) {
         try {
