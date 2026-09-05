@@ -459,12 +459,14 @@ module.exports = {
         try {
           if (!selectedChannel) {
             await db.updateWelcomeChannel(guild.id, null);
+            await updateConfig(guild, { welcomeChannelId: null });
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Cleared').setDescription('Welcome channel has been unset').setColor(0x00ff00)],
               ephemeral: true
             });
           } else {
             await db.updateWelcomeChannel(guild.id, selectedChannel);
+            await updateConfig(guild, { welcomeChannelId: selectedChannel });
             const channel = await guild.channels.fetch(selectedChannel);
             await interaction.reply({
               embeds: [new EmbedBuilder().setTitle('✅ Welcome Channel Set').setDescription(`Welcome messages are now enabled in ${channel}`).setColor(0x00ff00)],

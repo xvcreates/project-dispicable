@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const db = require('../services/database');
+const { getConfig } = require('../services/discordConfig');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,6 +15,8 @@ module.exports = {
 
     const guild = interaction.guild;
     const settings = await db.getGuildSettings(guild.id);
+    const discordConfig = await getConfig(guild);
+    const welcomeChannelId = discordConfig.welcomeChannelId || settings.welcomeChannelId;
     const configuredRoleNames = await Promise.all((settings.cmdsRoleIds || []).map(async roleId => {
       const role = await guild.roles.fetch(roleId).catch(() => null);
       return role?.name || roleId;
@@ -32,7 +35,7 @@ module.exports = {
         { name: 'Moderation logs', value: settings.modlogChannelId ? `<#${settings.modlogChannelId}>` : 'Not set', inline: true },
         { name: 'General logs', value: settings.generalLogChannelId ? `<#${settings.generalLogChannelId}>` : 'Not set', inline: true },
         { name: 'Log color', value: `Saved: ${currentColorLabel}`, inline: true },
-        { name: 'Welcome messages', value: settings.welcomeEnabled && settings.welcomeChannelId ? `Enabled in <#${settings.welcomeChannelId}>` : 'Disabled', inline: false }
+        { name: 'Welcome messages', value: welcomeChannelId ? `Enabled in <#${welcomeChannelId}>` : 'Disabled', inline: false }
       )
       .setFooter({ text: 'You can reopen /setup at any time to change these settings.' });
 
@@ -91,7 +94,7 @@ module.exports = {
       .addComponents(
         new ChannelSelectMenuBuilder()
           .setCustomId('setup_welcome_channel')
-          .setPlaceholder(settings.welcomeChannelId ? `Current: #${(await guild.channels.fetch(settings.welcomeChannelId).catch(() => null))?.name || 'saved channel'}`.slice(0, 100) : 'Select welcome channel (enables welcome messages)')
+          .setPlaceholder(welcomeChannelId ? `Current: #${(await guild.channels.fetch(welcomeChannelId).catch(() => null))?.name || 'saved channel'}`.slice(0, 100) : 'Select welcome channel (enables welcome messages)')
           .addChannelTypes(ChannelType.GuildText)
           .setMinValues(0)
           .setMaxValues(1)
