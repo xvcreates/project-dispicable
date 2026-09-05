@@ -1,390 +1,103 @@
-const fs = require('fs');
-const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const { MongoClient } = require('mongodb');
 
-const configuredDbPath = process.env.DATABASE_PATH;
-const dataDir = configuredDbPath
-  ? path.dirname(path.resolve(configuredDbPath))
-  : path.join(__dirname, '..', 'data');
-const dbPath = configuredDbPath
-  ? path.resolve(configuredDbPath)
-  : path.join(dataDir, 'bot.sqlite');
-
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const db = new sqlite3.Database(dbPath);
-
-function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve(this);
-    });
-  });
-}
-
-function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
-}
-
-function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows);
-    });
-  });
-}
-
-async function ensureGuildSettingsColumns() {
-  const columns = await all('PRAGMA table_info(guild_settings)');
-  const existingNames = new Set(columns.map(column => column.name));
-
-  const columnDefinitions = [
-    ['cmds_role_id', 'TEXT'],
-    ['disabled_ping_role_ids', 'TEXT'],
-    ['modlog_channel_id', 'TEXT'],
-    ['general_log_channel_id', 'TEXT'],
-    ['log_color', 'TEXT DEFAULT 0x0099ff'],
-    ['ticket_ping_enabled', 'INTEGER DEFAULT 0'],
-    ['ticket_ping_role_ids', 'TEXT'],
-    ['ticket_view_role_ids', 'TEXT'],
-    // Notification Settings
-    ['notify_warn_enabled', 'INTEGER DEFAULT 0'],
-    ['notify_mute_enabled', 'INTEGER DEFAULT 0'],
-    ['notify_ban_enabled', 'INTEGER DEFAULT 0'],
-    ['ping_mods_enabled', 'INTEGER DEFAULT 0'],
-    // Punishment Escalation
-    ['escalation_enabled', 'INTEGER DEFAULT 0'],
-    ['escalation_warn_threshold', 'INTEGER DEFAULT 5'],
-    // Auto-join Features
-    ['auto_role_enabled', 'INTEGER DEFAULT 0'],
-    ['auto_role_id', 'TEXT'],
-    ['welcome_enabled', 'INTEGER DEFAULT 0'],
-    ['welcome_channel_id', 'TEXT'],
-    // Moderation Defaults
-    ['default_mute_duration', 'INTEGER DEFAULT 60'],
-    ['default_ban_appeal_link', 'TEXT'],
-    // Moderation Logging
-    ['log_warns_enabled', 'INTEGER DEFAULT 1'],
-    ['log_mutes_enabled', 'INTEGER DEFAULT 1'],
-    ['log_kicks_enabled', 'INTEGER DEFAULT 1'],
-    ['log_bans_enabled', 'INTEGER DEFAULT 1'],
-    ['audit_log_channel_id', 'TEXT']
-  ];
-
-  for (const [columnName, columnType] of columnDefinitions) {
-    if (!existingNames.has(columnName)) {
-      await run(`ALTER TABLE guild_settings ADD COLUMN ${columnName} ${columnType}`);
-    }
-  }
-}
+const mongoUri = process.env.MONGODB_URI;
+const databaseName = process.env.MONGODB_DATABASE || 'mustard';
+let client;
+let database;
 
 async function initialize() {
-  await run(`CREATE TABLE IF NOT EXISTS guild_settings (
-    guild_id TEXT PRIMARY KEY,
-    raid_mode INTEGER DEFAULT 0,
-    automod_enabled INTEGER DEFAULT 1,
-    spam_threshold INTEGER DEFAULT 5,
-    spam_window_ms INTEGER DEFAULT 8000,
-    max_mentions INTEGER DEFAULT 5,
-    block_invites INTEGER DEFAULT 1,
-    cmds_role_id TEXT,
-    modlog_channel_id TEXT,
-    general_log_channel_id TEXT,
-    log_color TEXT DEFAULT '0x0099ff',
-    ticket_ping_enabled INTEGER DEFAULT 0,
-    ticket_ping_role_ids TEXT,
-    ticket_view_role_ids TEXT
-  )`);
+  if (!mongoUri) throw new Error('MONGODB_URI is required.');
+  if (database) return;
+  client = new MongoClient(mongoUri);
+  await client.connect();
+  database = client.db(databaseName);
+  await Promise.all([
+    database.collection('guild_settings').createIndex({ guild_id: 1 }, { unique: true }),
+    database.collection('warnings').createIndex({ guild_id: 1, user_id: 1 }),
+    database.collection('moderation_logs').createIndex({ guild_id: 1, created_at: -1 }),
+    database.collection('delete_future_channels').createIndex({ guild_id: 1, channel_id: 1 }, { unique: true }),
+    database.collection('disabled_ping_strikes').createIndex({ guild_id: 1, user_id: 1 }, { unique: true })
+  ]);
+}
 
-  await ensureGuildSettingsColumns();
+function collection(name) {
+  if (!database) throw new Error('Database has not been initialized.');
+  return database.collection(name);
+}
 
-  await run(`CREATE TABLE IF NOT EXISTS warnings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    guild_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    source TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  )`);
+function defaultSettings(guildId) {
+  return {
+    guild_id: guildId, raid_mode: false, automod_enabled: true, spam_threshold: 5,
+    spam_window_ms: 8000, max_mentions: 5, block_invites: true, cmds_role_id: [],
+    disabled_ping_role_ids: [], modlog_channel_id: null, general_log_channel_id: null,
+    log_color: '0x0099ff', ticket_ping_enabled: false, ticket_ping_role_ids: [],
+    ticket_view_role_ids: [], welcome_enabled: false, welcome_channel_id: null,
+    log_warns_enabled: true, log_mutes_enabled: true, log_kicks_enabled: true, log_bans_enabled: true
+  };
+}
 
-  await run(`CREATE TABLE IF NOT EXISTS moderation_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    guild_id TEXT NOT NULL,
-    action TEXT NOT NULL,
-    target_id TEXT,
-    target_tag TEXT,
-    executor_id TEXT,
-    executor_tag TEXT,
-    reason TEXT,
-    metadata TEXT,
-    created_at TEXT NOT NULL
-  )`);
+function roles(value) {
+  return Array.isArray(value) ? value : (value || '').split(',').map(item => item.trim()).filter(Boolean);
+}
 
-  await run(`CREATE TABLE IF NOT EXISTS tickets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    guild_id TEXT NOT NULL,
-    channel_id TEXT,
-    creator_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    status TEXT DEFAULT 'open',
-    created_at TEXT NOT NULL,
-    closed_at TEXT
-  )`);
-
-  await run(`CREATE TABLE IF NOT EXISTS delete_future_channels (
-    guild_id TEXT NOT NULL,
-    channel_id TEXT NOT NULL,
-    PRIMARY KEY (guild_id, channel_id)
-  )`);
-
-  await run(`CREATE TABLE IF NOT EXISTS disabled_ping_strikes (
-    guild_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    strike_count INTEGER DEFAULT 0,
-    PRIMARY KEY (guild_id, user_id)
-  )`);
+function mapSettings(row) {
+  return {
+    raidMode: Boolean(row.raid_mode), automodEnabled: row.automod_enabled !== false,
+    spamThreshold: row.spam_threshold || 5, spamWindowMs: row.spam_window_ms || 8000,
+    maxMentions: row.max_mentions || 5, blockInvites: row.block_invites !== false,
+    cmdsRoleId: roles(row.cmds_role_id)[0] || null, cmdsRoleIds: roles(row.cmds_role_id),
+    disabledPingRoleIds: roles(row.disabled_ping_role_ids), modlogChannelId: row.modlog_channel_id,
+    generalLogChannelId: row.general_log_channel_id, logColor: row.log_color || '0x0099ff',
+    ticketPingEnabled: Boolean(row.ticket_ping_enabled), ticketPingRoleIds: roles(row.ticket_ping_role_ids),
+    ticketViewRoleIds: roles(row.ticket_view_role_ids), welcomeEnabled: Boolean(row.welcome_enabled),
+    welcomeChannelId: row.welcome_channel_id, notifyWarnEnabled: Boolean(row.notify_warn_enabled),
+    notifyMuteEnabled: Boolean(row.notify_mute_enabled), notifyBanEnabled: Boolean(row.notify_ban_enabled),
+    pingModsEnabled: Boolean(row.ping_mods_enabled), escalationEnabled: Boolean(row.escalation_enabled),
+    escalationWarnThreshold: row.escalation_warn_threshold || 5, autoRoleEnabled: Boolean(row.auto_role_enabled),
+    autoRoleId: row.auto_role_id, defaultMuteDuration: row.default_mute_duration || 60,
+    defaultBanAppealLink: row.default_ban_appeal_link, logWarnsEnabled: row.log_warns_enabled !== false,
+    logMutesEnabled: row.log_mutes_enabled !== false, logKicksEnabled: row.log_kicks_enabled !== false,
+    logBansEnabled: row.log_bans_enabled !== false, auditLogChannelId: row.audit_log_channel_id
+  };
 }
 
 async function getGuildSettings(guildId) {
-  const row = await get('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
-  if (row) {
-    const cmdRoleIds = (row.cmds_role_id || '')
-      .split(',')
-      .map(value => value.trim())
-      .filter(Boolean);
-    const ticketPingRoleIds = (row.ticket_ping_role_ids || '')
-      .split(',')
-      .map(value => value.trim())
-      .filter(Boolean);
-    const ticketViewRoleIds = (row.ticket_view_role_ids || '')
-      .split(',')
-      .map(value => value.trim())
-      .filter(Boolean);
-
-    return {
-      raidMode: Boolean(row.raid_mode),
-      automodEnabled: Boolean(row.automod_enabled),
-      spamThreshold: row.spam_threshold,
-      spamWindowMs: row.spam_window_ms,
-      maxMentions: row.max_mentions,
-      blockInvites: Boolean(row.block_invites),
-      cmdsRoleId: cmdRoleIds[0] || null,
-      cmdsRoleIds: cmdRoleIds,
-      disabledPingRoleIds: (row.disabled_ping_role_ids || '')
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean),
-      modlogChannelId: row.modlog_channel_id,
-      generalLogChannelId: row.general_log_channel_id,
-      logColor: row.log_color || '0x0099ff',
-      ticketPingEnabled: Boolean(row.ticket_ping_enabled),
-      ticketPingRoleIds: ticketPingRoleIds,
-      ticketViewRoleIds: ticketViewRoleIds,
-      // Notification Settings
-      notifyWarnEnabled: Boolean(row.notify_warn_enabled),
-      notifyMuteEnabled: Boolean(row.notify_mute_enabled),
-      notifyBanEnabled: Boolean(row.notify_ban_enabled),
-      pingModsEnabled: Boolean(row.ping_mods_enabled),
-      // Punishment Escalation
-      escalationEnabled: Boolean(row.escalation_enabled),
-      escalationWarnThreshold: row.escalation_warn_threshold || 5,
-      // Auto-join Features
-      autoRoleEnabled: Boolean(row.auto_role_enabled),
-      autoRoleId: row.auto_role_id,
-      welcomeEnabled: Boolean(row.welcome_enabled),
-      welcomeChannelId: row.welcome_channel_id,
-      // Moderation Defaults
-      defaultMuteDuration: row.default_mute_duration || 60,
-      defaultBanAppealLink: row.default_ban_appeal_link,
-      // Moderation Logging
-      logWarnsEnabled: Boolean(row.log_warns_enabled),
-      logMutesEnabled: Boolean(row.log_mutes_enabled),
-      logKicksEnabled: Boolean(row.log_kicks_enabled),
-      logBansEnabled: Boolean(row.log_bans_enabled),
-      auditLogChannelId: row.audit_log_channel_id
-    };
-  }
-  await run(`INSERT INTO guild_settings (guild_id) VALUES (?)`, [guildId]);
-  return getGuildSettings(guildId);
+  await collection('guild_settings').updateOne({ guild_id: guildId }, { $setOnInsert: defaultSettings(guildId) }, { upsert: true });
+  return mapSettings(await collection('guild_settings').findOne({ guild_id: guildId }));
 }
 
-async function setRaidMode(guildId, enabled) {
-  await run('INSERT INTO guild_settings (guild_id, raid_mode) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET raid_mode = excluded.raid_mode', [guildId, enabled ? 1 : 0]);
+async function updateGuild(guildId, changes) {
+  await collection('guild_settings').updateOne({ guild_id: guildId }, { $set: changes }, { upsert: true });
 }
 
-async function addWarning(guildId, userId, reason, source = 'auto-mod') {
-  await run(
-    'INSERT INTO warnings (guild_id, user_id, reason, source, created_at) VALUES (?, ?, ?, ?, ?)',
-    [guildId, userId, reason, source, new Date().toISOString()]
-  );
-}
+const boolUpdate = field => (guildId, value) => updateGuild(guildId, { [field]: Boolean(value) });
+const valueUpdate = field => (guildId, value) => updateGuild(guildId, { [field]: value });
+const rolesUpdate = field => (guildId, value) => updateGuild(guildId, { [field]: Array.isArray(value) ? value : [value].filter(Boolean) });
 
-async function getWarnings(guildId, userId) {
-  return all('SELECT * FROM warnings WHERE guild_id = ? AND user_id = ? ORDER BY id DESC', [guildId, userId]);
-}
-
-async function clearWarnings(guildId, userId) {
-  await run('DELETE FROM warnings WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
-}
-
-async function logAction(log) {
-  await run(
-    'INSERT INTO moderation_logs (guild_id, action, target_id, target_tag, executor_id, executor_tag, reason, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [
-      log.guildId,
-      log.action,
-      log.targetId || null,
-      log.targetTag || null,
-      log.executorId || null,
-      log.executorTag || null,
-      log.reason || null,
-      log.metadata ? JSON.stringify(log.metadata) : null,
-      new Date().toISOString()
-    ]
-  );
-}
+async function setRaidMode(guildId, enabled) { return updateGuild(guildId, { raid_mode: Boolean(enabled) }); }
+async function addWarning(guildId, userId, reason, source = 'auto-mod') { return collection('warnings').insertOne({ guild_id: guildId, user_id: userId, reason, source, created_at: new Date().toISOString() }); }
+async function getWarnings(guildId, userId) { return collection('warnings').find({ guild_id: guildId, user_id: userId }).sort({ created_at: -1 }).toArray(); }
+async function clearWarnings(guildId, userId) { return collection('warnings').deleteMany({ guild_id: guildId, user_id: userId }); }
+async function logAction(log) { return collection('moderation_logs').insertOne({ guild_id: log.guildId, action: log.action, target_id: log.targetId || null, target_tag: log.targetTag || null, executor_id: log.executorId || null, executor_tag: log.executorTag || null, reason: log.reason || null, metadata: log.metadata || {}, created_at: new Date().toISOString() }); }
 
 module.exports = {
-  initialize,
-  getGuildSettings,
-  setRaidMode,
-  addWarning,
-  getWarnings,
-  clearWarnings,
-  logAction,
-  get,
-  all,
-  run,
-  updateCmdsRole: async (guildId, roleIds) => {
-    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
-    const value = normalized.length ? normalized.join(',') : null;
-    await run('UPDATE guild_settings SET cmds_role_id = ? WHERE guild_id = ?', [value, guildId]);
-  },
-  updateDisabledPingRoles: async (guildId, roleIds) => {
-    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
-    const value = normalized.length ? normalized.join(',') : null;
-    await run('UPDATE guild_settings SET disabled_ping_role_ids = ? WHERE guild_id = ?', [value, guildId]);
-  },
-  updateModlogChannel: async (guildId, channelId) => {
-    await run('UPDATE guild_settings SET modlog_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
-  },
-  updateGeneralLogChannel: async (guildId, channelId) => {
-    await run('UPDATE guild_settings SET general_log_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
-  },
-  updateTicketPingEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET ticket_ping_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateTicketPingRoles: async (guildId, roleIds) => {
-    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
-    const value = normalized.length ? normalized.join(',') : null;
-    await run('UPDATE guild_settings SET ticket_ping_role_ids = ? WHERE guild_id = ?', [value, guildId]);
-  },
-  updateTicketViewRoles: async (guildId, roleIds) => {
-    const normalized = Array.isArray(roleIds) ? roleIds : [roleIds].filter(Boolean);
-    const value = normalized.length ? normalized.join(',') : null;
-    await run('UPDATE guild_settings SET ticket_view_role_ids = ? WHERE guild_id = ?', [value, guildId]);
-  },
-  updateLogColor: async (guildId, colorHex) => {
-    await run('UPDATE guild_settings SET log_color = ? WHERE guild_id = ?', [colorHex, guildId]);
-  },
-  // Notification Settings
-  updateNotifyWarn: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET notify_warn_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateNotifyMute: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET notify_mute_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateNotifyBan: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET notify_ban_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updatePingMods: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET ping_mods_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  // Punishment Escalation
-  updateEscalationEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET escalation_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateEscalationThreshold: async (guildId, threshold) => {
-    await run('UPDATE guild_settings SET escalation_warn_threshold = ? WHERE guild_id = ?', [threshold, guildId]);
-  },
-  // Auto-join Features
-  updateAutoRoleEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET auto_role_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateAutoRoleId: async (guildId, roleId) => {
-    await run('UPDATE guild_settings SET auto_role_id = ? WHERE guild_id = ?', [roleId, guildId]);
-  },
-  updateWelcomeEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET welcome_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateWelcomeChannelId: async (guildId, channelId) => {
-    await run('UPDATE guild_settings SET welcome_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
-  },
-  updateWelcomeChannel: async (guildId, channelId) => {
-    await run(
-      `INSERT INTO guild_settings (guild_id, welcome_channel_id, welcome_enabled)
-       VALUES (?, ?, ?)
-       ON CONFLICT(guild_id) DO UPDATE SET
-         welcome_channel_id = excluded.welcome_channel_id,
-         welcome_enabled = excluded.welcome_enabled`,
-      [guildId, channelId, channelId ? 1 : 0]
-    );
-  },
-  // Moderation Defaults
-  updateDefaultMuteDuration: async (guildId, minutes) => {
-    await run('UPDATE guild_settings SET default_mute_duration = ? WHERE guild_id = ?', [minutes, guildId]);
-  },
-  updateDefaultBanAppealLink: async (guildId, link) => {
-    await run('UPDATE guild_settings SET default_ban_appeal_link = ? WHERE guild_id = ?', [link, guildId]);
-  },
-  // Moderation Logging
-  updateLogWarnsEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET log_warns_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateLogMutesEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET log_mutes_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateLogKicksEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET log_kicks_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateLogBansEnabled: async (guildId, enabled) => {
-    await run('UPDATE guild_settings SET log_bans_enabled = ? WHERE guild_id = ?', [enabled ? 1 : 0, guildId]);
-  },
-  updateAuditLogChannel: async (guildId, channelId) => {
-    await run('UPDATE guild_settings SET audit_log_channel_id = ? WHERE guild_id = ?', [channelId, guildId]);
-  },
-  enableDeleteFuture: async (guildId, channelId) => {
-    await run('INSERT OR IGNORE INTO delete_future_channels (guild_id, channel_id) VALUES (?, ?)', [guildId, channelId]);
-  },
-  disableDeleteFuture: async (guildId, channelId) => {
-    await run('DELETE FROM delete_future_channels WHERE guild_id = ? AND channel_id = ?', [guildId, channelId]);
-  },
-  isDeleteFutureEnabled: async (guildId, channelId) => {
-    const row = await get('SELECT 1 FROM delete_future_channels WHERE guild_id = ? AND channel_id = ?', [guildId, channelId]);
-    return Boolean(row);
-  },
-  addDisabledPingStrike: async (guildId, userId) => {
-    await run(
-      `INSERT INTO disabled_ping_strikes (guild_id, user_id, strike_count)
-       VALUES (?, ?, 1)
-       ON CONFLICT(guild_id, user_id) DO UPDATE SET strike_count = strike_count + 1`,
-      [guildId, userId]
-    );
-    const row = await get('SELECT strike_count FROM disabled_ping_strikes WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
-    return row?.strike_count || 0;
-  },
-  resetDisabledPingStrikes: async (guildId, userId) => {
-    await run('DELETE FROM disabled_ping_strikes WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
-  }
+  initialize, getGuildSettings, setRaidMode, addWarning, getWarnings, clearWarnings, logAction,
+  updateCmdsRole: rolesUpdate('cmds_role_id'), updateDisabledPingRoles: rolesUpdate('disabled_ping_role_ids'),
+  updateModlogChannel: valueUpdate('modlog_channel_id'), updateGeneralLogChannel: valueUpdate('general_log_channel_id'),
+  updateTicketPingEnabled: boolUpdate('ticket_ping_enabled'), updateTicketPingRoles: rolesUpdate('ticket_ping_role_ids'),
+  updateTicketViewRoles: rolesUpdate('ticket_view_role_ids'), updateLogColor: valueUpdate('log_color'),
+  updateNotifyWarn: boolUpdate('notify_warn_enabled'), updateNotifyMute: boolUpdate('notify_mute_enabled'),
+  updateNotifyBan: boolUpdate('notify_ban_enabled'), updatePingMods: boolUpdate('ping_mods_enabled'),
+  updateEscalationEnabled: boolUpdate('escalation_enabled'), updateEscalationThreshold: valueUpdate('escalation_warn_threshold'),
+  updateAutoRoleEnabled: boolUpdate('auto_role_enabled'), updateAutoRoleId: valueUpdate('auto_role_id'),
+  updateWelcomeEnabled: boolUpdate('welcome_enabled'), updateWelcomeChannelId: valueUpdate('welcome_channel_id'),
+  updateWelcomeChannel: async (guildId, channelId) => updateGuild(guildId, { welcome_channel_id: channelId, welcome_enabled: Boolean(channelId) }),
+  updateDefaultMuteDuration: valueUpdate('default_mute_duration'), updateDefaultBanAppealLink: valueUpdate('default_ban_appeal_link'),
+  updateLogWarnsEnabled: boolUpdate('log_warns_enabled'), updateLogMutesEnabled: boolUpdate('log_mutes_enabled'),
+  updateLogKicksEnabled: boolUpdate('log_kicks_enabled'), updateLogBansEnabled: boolUpdate('log_bans_enabled'), updateAuditLogChannel: valueUpdate('audit_log_channel_id'),
+  enableDeleteFuture: async (guildId, channelId) => collection('delete_future_channels').updateOne({ guild_id: guildId, channel_id: channelId }, { $set: { guild_id: guildId, channel_id: channelId } }, { upsert: true }),
+  disableDeleteFuture: async (guildId, channelId) => collection('delete_future_channels').deleteOne({ guild_id: guildId, channel_id: channelId }),
+  isDeleteFutureEnabled: async (guildId, channelId) => Boolean(await collection('delete_future_channels').findOne({ guild_id: guildId, channel_id: channelId })),
+  addDisabledPingStrike: async (guildId, userId) => { await collection('disabled_ping_strikes').updateOne({ guild_id: guildId, user_id: userId }, { $inc: { strike_count: 1 } }, { upsert: true }); const row = await collection('disabled_ping_strikes').findOne({ guild_id: guildId, user_id: userId }); return row.strike_count; },
+  resetDisabledPingStrikes: async (guildId, userId) => collection('disabled_ping_strikes').deleteOne({ guild_id: guildId, user_id: userId })
 };
-
-

@@ -21,8 +21,9 @@ MUSTARD is the new modular Discord bot for your community, built for advanced mo
 2. Create a `.env` file with:
    ```env
    DISCORD_TOKEN=your_bot_token
-   GUILD_ID=your_guild_id
    CLIENT_ID=your_bot_client_id
+   MONGODB_URI=your_mongodb_connection_string
+   MONGODB_DATABASE=mustard
    ```
 
 3. Start the new modular bot:
@@ -73,6 +74,6 @@ MUSTARD is the new modular Discord bot for your community, built for advanced mo
 
 - Create a role called `cmds` for staff command access
 - Create a `bot-use` or `mod-logs` channel for moderation logs
-- The new build uses SQLite and creates `src/data/bot.sqlite`
-- On Render, set `DATABASE_PATH` to a file on a mounted persistent disk, such as `/var/data/mustard.sqlite`, or settings will be lost when the service restarts
+- The bot stores settings, warnings, logs, and feature state in MongoDB
+- On Render, add `MONGODB_URI` and optionally set `MONGODB_DATABASE=mustard`
 - The old bot remains available in case you need it
